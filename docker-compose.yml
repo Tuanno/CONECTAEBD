@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: conectaebd_app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    command: sh -c "php artisan serve --host=0.0.0.0 --port=8000"
+
+  db:
+    image: mysql:8.0
+    container_name: conectaebd_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: conectaebd
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: laravel
+      MYSQL_PASSWORD: secret
+    ports:
+      - "3306:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: conectaebd_phpmyadmin
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      PMA_HOST: db
+      PMA_USER: laravel
+      PMA_PASSWORD: secret
+      PMA_PORT: 3306
+    ports:
+      - "8080:80"
+
+volumes:
+  dbdata:
