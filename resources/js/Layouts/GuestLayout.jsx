@@ -1,18 +1,18 @@
-import ApplicationLogo from '@/Components/ApplicationLogo';
-import { Link } from '@inertiajs/react';
+import React from 'react';
+import Navbar from '@/Components/Navbar';
 
 export default function GuestLayout({ children }) {
-    return (
-        <div className="flex min-h-screen flex-col items-center bg-gray-100 pt-6 sm:justify-center sm:pt-0">
-            <div>
-                <Link href="/">
-                    <ApplicationLogo className="h-20 w-20 fill-current text-gray-500" />
-                </Link>
-            </div>
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-100">
+      {/* Navbar fixa no topo */}
+      <Navbar />
 
-            <div className="mt-6 w-full overflow-hidden bg-white px-6 py-4 shadow-md sm:max-w-md sm:rounded-lg">
-                {children}
-            </div>
+      {/* Conteúdo da página (login/register) */}
+      <main className="flex-grow flex justify-center items-start mt-10">
+        <div className="w-full max-w-md bg-white shadow-md rounded-lg p-6">
+          {children}
         </div>
-    );
+      </main>
+    </div>
+  );
 }

@@ -27,6 +27,12 @@ export default function Register() {
     return (
         <GuestLayout>
             <Head title="Register" />
+            <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">
+                REGISTRO
+            </h1>
+            <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">
+                Abra sua Conta
+            </h1>
 
             <form onSubmit={submit}>
                 <div>
@@ -167,11 +173,11 @@ export default function Register() {
                         href={route('login')}
                         className="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                     >
-                        Already registered?
+                       Já possui uma conta? Faça login.
                     </Link>
 
                     <PrimaryButton className="ms-4" disabled={processing}>
-                        Register
+                        Registro
                     </PrimaryButton>
                 </div>
             </form>

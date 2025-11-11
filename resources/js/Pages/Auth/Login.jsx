@@ -24,6 +24,12 @@ export default function Login({ status, canResetPassword }) {
     return (
         <GuestLayout>
             <Head title="Log in" />
+            <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">
+                LOGIN
+            </h1>
+            <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">
+                Acesse sua conta
+            </h1>
 
             {status && (
                 <div className="mb-4 text-sm font-medium text-green-600">
@@ -86,12 +92,12 @@ export default function Login({ status, canResetPassword }) {
                             href={route('password.request')}
                             className="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                         >
-                            Forgot your password?
+                            Esqueceu sua senha?
                         </Link>
                     )}
 
                     <PrimaryButton className="ms-4" disabled={processing}>
-                        Log in
+                        Entrar
                     </PrimaryButton>
                 </div>
             </form>
