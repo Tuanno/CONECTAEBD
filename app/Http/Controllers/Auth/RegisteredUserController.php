@@ -20,6 +20,17 @@ class RegisteredUserController extends Controller
      */
     public function create(): Response
     {
+        // Verificar se o usuário está autenticado e tem permissão para cadastrar
+        if (Auth::check()) {
+            $user = Auth::user();
+            
+            // Apenas professores e secretários podem cadastrar novos alunos
+            if (!in_array($user->user_role, ['professor', 'secretaria'])) {
+                return redirect()->route('dashboard')
+                    ->with('error', 'Você não tem permissão para cadastrar novos alunos.');
+            }
+        }
+        
         return Inertia::render('Auth/Register');
     }
 
@@ -30,6 +41,17 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        // Verificar se o usuário está autenticado e tem permissão para cadastrar
+        if (Auth::check()) {
+            $user = Auth::user();
+            
+            // Apenas professores e secretários podem cadastrar novos alunos
+            if (!in_array($user->user_role, ['professor', 'secretaria'])) {
+                return redirect()->route('dashboard')
+                    ->with('error', 'Você não tem permissão para cadastrar novos alunos.');
+            }
+        }
+        
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
@@ -39,7 +61,7 @@ class RegisteredUserController extends Controller
             'class_group' => ['required', 'in:adulto,juvenil,infantil,pre-adolescente'],
         ]);
 
-        $user = User::create([
+        $newUser = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
@@ -48,9 +70,17 @@ class RegisteredUserController extends Controller
             'class_group' => $request->class_group,
         ]);
 
-        event(new Registered($user));
+        event(new Registered($newUser));
 
-        Auth::login($user);
+        // Se quem está cadastrando é um professor/secretaria autenticado,
+        // redirecionar para o dashboard ao invés de fazer login automático
+        if (Auth::check()) {
+            return redirect()->route('dashboard')
+                ->with('success', 'Aluno cadastrado com sucesso!');
+        }
+
+        // Se for auto-registro (não autenticado), fazer login automático
+        Auth::login($newUser);
 
         return redirect(route('dashboard', absolute: false));
     }
