@@ -11,6 +11,7 @@ export default function Dashboard() {
     const [students, setStudents] = useState([]);
     const [professor, setProfessor] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [offeringValue, setOfferingValue] = useState('');
     
     // Estado para rastrear presença e materiais de cada aluno
     const [attendanceData, setAttendanceData] = useState({});
@@ -48,10 +49,6 @@ export default function Dashboard() {
             setProfessor(null);
         }
     }, [selectedClass]);
-
-    const handleClassClick = (classValue) => {
-        setSelectedClass(classValue);
-    };
 
     const handleEditStudent = (studentId) => {
         // TODO: Implementar lógica de edição
@@ -92,6 +89,45 @@ export default function Dashboard() {
                 }
             }
         }));
+    };
+
+    const handleClassClick = (classValue) => {
+        setSelectedClass(classValue);
+    };
+
+    const handleSaveAttendance = async () => {
+        if (!selectedClass || students.length === 0) {
+            alert('Selecione uma classe e certifique-se de que há alunos.');
+            return;
+        }
+
+        // Preparar dados para enviar
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        const attendances = students.map(student => ({
+            user_id: student.id,
+            status: attendanceData[student.id]?.status || 'ausente',
+            bible: attendanceData[student.id]?.materials?.biblia || false,
+            magazine: attendanceData[student.id]?.materials?.revista || false,
+        }));
+
+        try {
+            const response = await axios.post('/api/attendances', {
+                class_group: selectedClass,
+                attendance_date: today,
+                offering: offeringValue ? parseFloat(offeringValue) : null,
+                attendances: attendances,
+            });
+
+            if (response.data.success) {
+                alert(`✓ Frequência salva com sucesso! (${response.data.count} alunos registrados)`);
+                // Limpar formulário
+                setAttendanceData({});
+                setOfferingValue('');
+            }
+        } catch (error) {
+            console.error('Erro ao salvar:', error);
+            alert('Erro ao salvar frequência: ' + (error.response?.data?.message || error.message));
+        }
     };
 
     return (
@@ -172,9 +208,21 @@ export default function Dashboard() {
                             </svg>
                         </button>
                         
-                        <h1 className="text-3xl font-bold text-gray-800 mb-2">
-                            REGISTRO DE FREQUÊNCIA
-                        </h1>
+                        <div className="flex justify-between items-center mb-2">
+                            <h1 className="text-3xl font-bold text-gray-800">
+                                REGISTRO DE FREQUÊNCIA
+                            </h1>
+                            
+                            <Link
+                                href={route('register')}
+                                className="bg-[#4ade80] text-white px-3 py-2 rounded-lg font-semibold hover:bg-green-500 transition-colors flex items-center gap-2"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                                Cadastrar Aluno
+                            </Link>
+                        </div>
                         
                         {selectedClass ? (
                             <div className="flex items-center gap-8">
@@ -324,9 +372,31 @@ export default function Dashboard() {
                                         <p className="text-sm text-gray-600">
                                             Total de alunos: <span className="font-bold">{students.length}</span>
                                         </p>
-                                        <button className="bg-[#4ade80] text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-500 transition-colors">
+                                        <button 
+                                            onClick={handleSaveAttendance}
+                                            className="bg-[#4ade80] text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-500 transition-colors"
+                                        >
                                             Salvar Frequência
                                         </button>
+                                    </div>
+
+                                    {/* CAMPO OFERTA */}
+                                    <div className="mt-8 pt-6 border-t border-gray-200">
+                                        <div className="flex items-center gap-4">
+                                            <label className="font-semibold text-gray-700 uppercase text-sm">
+                                                Oferta:
+                                            </label>
+                                            <input 
+                                                type="number" 
+                                                step="0.01"
+                                                min="0"
+                                                placeholder="0,00"
+                                                value={offeringValue}
+                                                onChange={(e) => setOfferingValue(e.target.value)}
+                                                className="w-32 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4ade80] focus:border-transparent"
+                                            />
+                                            <span className="text-gray-600">Valor em reais</span>
+                                        </div>
                                     </div>
                                 </div>
                             ) : (
