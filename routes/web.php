@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StudentController;
+use App\Http\Controllers\AttendanceController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -27,6 +28,11 @@ Route::middleware('auth')->group(function () {
     // Rotas para buscar alunos por classe
     Route::get('/api/students/{classGroup}', [StudentController::class, 'getStudentsByClass']);
     Route::get('/api/students', [StudentController::class, 'getAllStudents']);
+    
+    // Rotas para frequência
+    Route::post('/api/attendances', [AttendanceController::class, 'store']);
+    Route::get('/api/attendances/{classGroup}/{date}', [AttendanceController::class, 'getByDateAndClass']);
+    Route::delete('/api/attendances/{id}', [AttendanceController::class, 'destroy']);
 });
 
 require __DIR__.'/auth.php';

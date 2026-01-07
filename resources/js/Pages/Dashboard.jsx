@@ -1,10 +1,13 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import React from 'react';
 
 export default function Dashboard() {
+    const { props } = usePage();
+    const user = props.auth.user;
+    
     const [classesOpen, setClassesOpen] = useState(true);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [selectedClass, setSelectedClass] = useState('');
@@ -15,6 +18,9 @@ export default function Dashboard() {
     
     // Estado para rastrear presença e materiais de cada aluno
     const [attendanceData, setAttendanceData] = useState({});
+    
+    // Verificar se o usuário pode cadastrar alunos (professor ou secretaria)
+    const canRegisterStudents = user && (user.user_role === 'professor' || user.user_role === 'secretaria');
 
     const classes = [
         { name: 'ADULTO', value: 'adulto' },
@@ -208,41 +214,59 @@ export default function Dashboard() {
                             </svg>
                         </button>
                         
-                        <div className="flex justify-between items-center mb-2">
-                            <h1 className="text-3xl font-bold text-gray-800">
-                                REGISTRO DE FREQUÊNCIA
-                            </h1>
-                            
-                            <Link
-                                href={route('register')}
-                                className="bg-[#4ade80] text-white px-3 py-2 rounded-lg font-semibold hover:bg-green-500 transition-colors flex items-center gap-2"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                </svg>
-                                Cadastrar Aluno
-                            </Link>
-                        </div>
+                        <h1 className="text-3xl font-bold text-gray-800 mb-2">
+                            REGISTRO DE FREQUÊNCIA
+                        </h1>
                         
                         {selectedClass ? (
-                            <div className="flex items-center gap-8">
-                                <p className="text-gray-600">
-                                    Classe: <span className="font-semibold text-[#4ade80] uppercase">
-                                        {classes.find(c => c.value === selectedClass)?.name}
-                                    </span>
-                                </p>
-                                {professor && (
+                            <div className="flex items-center justify-between gap-8">
+                                <div className="flex items-center gap-8">
                                     <p className="text-gray-600">
-                                        Professor: <span className="font-semibold text-gray-800">
-                                            {professor.name}
+                                        Classe: <span className="font-semibold text-[#4ade80] uppercase">
+                                            {classes.find(c => c.value === selectedClass)?.name}
                                         </span>
                                     </p>
+                                    {professor && (
+                                        <p className="text-gray-600">
+                                            Professor: <span className="font-semibold text-gray-800">
+                                                {professor.name}
+                                            </span>
+                                        </p>
+                                    )}
+                                </div>
+                                
+                                {canRegisterStudents && (
+                                    <Link
+                                        href="/register"
+                                        className="bg-[#4ade80] text-white px-6 py-2 rounded-lg 
+                                        font-semibold hover:bg-green-500 transition-colors flex items-center gap-2"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                        </svg>
+                                        Cadastrar Aluno
+                                    </Link>
                                 )}
                             </div>
                         ) : (
-                            <p className="text-gray-500 italic">
-                                Selecione uma classe no menu lateral para ver os alunos
-                            </p>
+                            <div className="flex items-center justify-between">
+                                <p className="text-gray-500 italic">
+                                    Selecione uma classe no menu lateral para ver os alunos
+                                </p>
+                                
+                                {canRegisterStudents && (
+                                    <Link
+                                        href="/register"
+                                        className="bg-[#4ade80] text-white px-6 py-2 rounded-lg 
+                                        font-semibold hover:bg-green-500 transition-colors flex items-center gap-2"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                        </svg>
+                                        Cadastrar Aluno
+                                    </Link>
+                                )}
+                            </div>
                         )}
                     </div>
 
