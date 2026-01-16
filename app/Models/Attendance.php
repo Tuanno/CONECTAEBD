@@ -17,6 +17,7 @@ class Attendance extends Model
         'bible',
         'magazine',
         'offering',
+        'visitors',
     ];
 
     protected $casts = [
@@ -24,6 +25,7 @@ class Attendance extends Model
         'bible' => 'boolean',
         'magazine' => 'boolean',
         'offering' => 'decimal:2',
+        'visitors' => 'integer',
     ];
 
     /**
