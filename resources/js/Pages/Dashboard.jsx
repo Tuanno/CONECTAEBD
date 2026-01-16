@@ -15,6 +15,8 @@ export default function Dashboard() {
     const [professor, setProfessor] = useState(null);
     const [loading, setLoading] = useState(false);
     const [offeringValue, setOfferingValue] = useState('');
+    const [visitorsValue, setVisitorsValue] = useState('');
+    const [classToReload, setClassToReload] = useState('');
     
     // Estado para rastrear presença e materiais de cada aluno
     const [attendanceData, setAttendanceData] = useState({});
@@ -57,16 +59,28 @@ export default function Dashboard() {
     }, [selectedClass]);
 
     const handleEditStudent = (studentId) => {
-        // TODO: Implementar lógica de edição
-        console.log('Editar aluno:', studentId);
-        alert(`Funcionalidade de edição para o aluno ID ${studentId} será implementada em breve.`);
+        // Usar o Link do Inertia para navegação
+        window.location.href = route('edit-user', { id: studentId });
     };
 
-    const handleDeleteStudent = (studentId) => {
-        // TODO: Implementar lógica de exclusão
-        if (window.confirm('Tem certeza que deseja excluir este usuário?')) {
-            console.log('Deletar aluno:', studentId);
-            alert(`Funcionalidade de exclusão para o aluno ID ${studentId} será implementada em breve.`);
+    const handleDeleteStudent = async (studentId) => {
+        if (window.confirm('Tem certeza que deseja deletar este usuário? Esta ação não pode ser desfeita.')) {
+            try {
+                const response = await axios.delete(`/api/users/${studentId}`);
+                
+                if (response.data.success) {
+                    alert(`✓ ${response.data.message}`);
+                    // Recarregar a lista
+                    const classToReload = selectedClass;
+                    setSelectedClass('');
+                    setTimeout(() => setSelectedClass(classToReload), 100);
+                } else {
+                    alert('Erro: ' + response.data.message);
+                }
+            } catch (error) {
+                console.error('Erro ao deletar:', error);
+                alert('Erro ao deletar usuário: ' + (error.response?.data?.message || error.message));
+            }
         }
     };
 
@@ -109,18 +123,35 @@ export default function Dashboard() {
 
         // Preparar dados para enviar
         const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-        const attendances = students.map(student => ({
-            user_id: student.id,
-            status: attendanceData[student.id]?.status || 'ausente',
-            bible: attendanceData[student.id]?.materials?.biblia || false,
-            magazine: attendanceData[student.id]?.materials?.revista || false,
-        }));
+        
+        // Incluir professor se houver
+        const attendances = [];
+        
+        if (professor && attendanceData[`professor-${professor.id}`]?.status) {
+            attendances.push({
+                user_id: professor.id,
+                status: attendanceData[`professor-${professor.id}`].status,
+                bible: attendanceData[`professor-${professor.id}`]?.materials?.biblia || false,
+                magazine: attendanceData[`professor-${professor.id}`]?.materials?.revista || false,
+            });
+        }
+        
+        // Incluir alunos
+        students.forEach(student => {
+            attendances.push({
+                user_id: student.id,
+                status: attendanceData[student.id]?.status || 'ausente',
+                bible: attendanceData[student.id]?.materials?.biblia || false,
+                magazine: attendanceData[student.id]?.materials?.revista || false,
+            });
+        });
 
         try {
             const response = await axios.post('/api/attendances', {
                 class_group: selectedClass,
                 attendance_date: today,
                 offering: offeringValue ? parseFloat(offeringValue) : null,
+                visitors: visitorsValue ? parseInt(visitorsValue) : 0,
                 attendances: attendances,
             });
 
@@ -129,6 +160,7 @@ export default function Dashboard() {
                 // Limpar formulário
                 setAttendanceData({});
                 setOfferingValue('');
+                setVisitorsValue('');
             }
         } catch (error) {
             console.error('Erro ao salvar:', error);
@@ -300,6 +332,102 @@ export default function Dashboard() {
                                             </tr>
                                         </thead>
                                         <tbody>
+                                            {/* LINHA DO PROFESSOR */}
+                                            {professor && (
+                                                <React.Fragment key={`professor-${professor.id}`}>
+                                                    <tr className="border-b border-gray-100 bg-yellow-50 hover:bg-yellow-100 transition-colors">
+                                                        <td className="py-3 px-4 font-semibold text-gray-800">
+                                                            {professor.name}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-center">
+                                                            <span className="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-yellow-200 text-yellow-800 uppercase">
+                                                                Professor
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-center">
+                                                            <input 
+                                                                type="radio" 
+                                                                name={`attendance-professor`}
+                                                                value="presente"
+                                                                onChange={() => handleAttendanceChange(`professor-${professor.id}`, 'presente')}
+                                                                className="w-5 h-5 text-green-500 focus:ring-green-500 cursor-pointer"
+                                                            />
+                                                        </td>
+                                                        <td className="py-3 px-4 text-center">
+                                                            <input 
+                                                                type="radio" 
+                                                                name={`attendance-professor`}
+                                                                value="ausente"
+                                                                onChange={() => handleAttendanceChange(`professor-${professor.id}`, 'ausente')}
+                                                                className="w-5 h-5 text-red-500 focus:ring-red-500 cursor-pointer"
+                                                            />
+                                                        </td>
+                                                        <td className="py-3 px-4">
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                <button 
+                                                                    onClick={() => handleEditStudent(professor.id)}
+                                                                    className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                                                    title="Editar usuário"
+                                                                >
+                                                                    <img 
+                                                                        src="https://img.icons8.com/ios-filled/50/edit--v1.png" 
+                                                                        alt="Editar"
+                                                                        className="w-6 h-6"
+                                                                    />
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => handleDeleteStudent(professor.id)}
+                                                                    className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                                                    title="Deletar usuário"
+                                                                >
+                                                                    <img 
+                                                                        src="https://img.icons8.com/ios-filled/50/trash--v1.png" 
+                                                                        alt="Deletar"
+                                                                        className="w-6 h-6"
+                                                                    />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+
+                                                    {/* LINHA EXPANDIDA - MATERIAIS DO PROFESSOR (aparece apenas se PRESENTE) */}
+                                                    {attendanceData[`professor-${professor.id}`]?.status === 'presente' && (
+                                                        <tr className="bg-yellow-50 border-b border-gray-100">
+                                                            <td colSpan="5" className="py-4 px-4">
+                                                                <div className="flex items-center gap-6 ml-4">
+                                                                    <span className="font-semibold text-gray-700">Materiais:</span>
+                                                                    
+                                                                    <label className="flex items-center gap-2 cursor-pointer">
+                                                                        <input 
+                                                                            type="checkbox"
+                                                                            checked={attendanceData[`professor-${professor.id}`]?.materials?.biblia || false}
+                                                                            onChange={() => handleMaterialChange(`professor-${professor.id}`, 'biblia')}
+                                                                            className="w-4 h-4 text-[#4ade80] rounded focus:ring-[#4ade80]"
+                                                                        />
+                                                                        <span className="text-gray-700 font-medium">Bíblia</span>
+                                                                    </label>
+
+                                                                    <label className="flex items-center gap-2 cursor-pointer">
+                                                                        <input 
+                                                                            type="checkbox"
+                                                                            checked={attendanceData[`professor-${professor.id}`]?.materials?.revista || false}
+                                                                            onChange={() => handleMaterialChange(`professor-${professor.id}`, 'revista')}
+                                                                            className="w-4 h-4 text-[#4ade80] rounded focus:ring-[#4ade80]"
+                                                                        />
+                                                                        <span className="text-gray-700 font-medium">Revista</span>
+                                                                    </label>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </React.Fragment>
+                                            )}
+
+                                            {/* LINHA SEPARADORA */}
+                                            {professor && students.length > 0 && (
+                                                <tr className="h-1 bg-gray-200"></tr>
+                                            )}
+
                                             {students.map((student, index) => (
                                                 <React.Fragment key={student.id}>
                                                     <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
@@ -394,7 +522,7 @@ export default function Dashboard() {
                                     
                                     <div className="mt-6 flex justify-between items-center">
                                         <p className="text-sm text-gray-600">
-                                            Total de alunos: <span className="font-bold">{students.length}</span>
+                                            Total de registros: <span className="font-bold">{students.length + (professor ? 1 : 0)}</span>
                                         </p>
                                         <button 
                                             onClick={handleSaveAttendance}
@@ -404,22 +532,41 @@ export default function Dashboard() {
                                         </button>
                                     </div>
 
-                                    {/* CAMPO OFERTA */}
+                                    {/* CAMPOS OFERTA E VISITANTES */}
                                     <div className="mt-8 pt-6 border-t border-gray-200">
-                                        <div className="flex items-center gap-4">
-                                            <label className="font-semibold text-gray-700 uppercase text-sm">
-                                                Oferta:
-                                            </label>
-                                            <input 
-                                                type="number" 
-                                                step="0.01"
-                                                min="0"
-                                                placeholder="0,00"
-                                                value={offeringValue}
-                                                onChange={(e) => setOfferingValue(e.target.value)}
-                                                className="w-32 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4ade80] focus:border-transparent"
-                                            />
-                                            <span className="text-gray-600">Valor em reais</span>
+                                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-8">
+                                            {/* Oferta */}
+                                            <div className="flex items-center gap-4">
+                                                <label className="font-semibold text-gray-700 uppercase text-sm whitespace-nowrap">
+                                                    Oferta:
+                                                </label>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01"
+                                                    min="0"
+                                                    placeholder="0,00"
+                                                    value={offeringValue}
+                                                    onChange={(e) => setOfferingValue(e.target.value)}
+                                                    className="w-32 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4ade80] focus:border-transparent"
+                                                />
+                                                <span className="text-gray-600 text-sm">Valor em reais</span>
+                                            </div>
+
+                                            {/* Visitantes */}
+                                            <div className="flex items-center gap-4">
+                                                <label className="font-semibold text-gray-700 uppercase text-sm whitespace-nowrap">
+                                                    Visitantes:
+                                                </label>
+                                                <input 
+                                                    type="number" 
+                                                    min="0"
+                                                    placeholder="0"
+                                                    value={visitorsValue}
+                                                    onChange={(e) => setVisitorsValue(e.target.value)}
+                                                    className="w-32 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4ade80] focus:border-transparent"
+                                                />
+                                                <span className="text-gray-600 text-sm">Quantidade</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

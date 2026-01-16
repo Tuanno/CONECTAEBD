@@ -13,7 +13,7 @@ export default function Sidebar() {
       <button className="flex items-center gap-2 p-2 bg-white text-green-600 rounded hover:bg-green-100">
         {/* Link para Professores */}
       <Link
-        href={route('register')} // URL para a página de professores
+        href={route('login')} // URL para a página de professores
       >
         <span role="img" aria-label="Professor">👨‍🏫</span>
         PROFESSOR
@@ -23,7 +23,7 @@ export default function Sidebar() {
       <button className="flex items-center gap-2 p-2 bg-white text-green-600 rounded hover:bg-green-100">
         {/* Link para Secretarias */}
       <Link
-        href={route('register')} // URL para a página da secretaria
+        href={route('login')} // URL para a página da secretaria
       >
         <span role="img" aria-label="Secretaria">👩‍💼</span>
         SECRETARIA
@@ -33,7 +33,7 @@ export default function Sidebar() {
       <button className="flex items-center gap-2 p-2 bg-white text-green-600 rounded hover:bg-green-100">
         {/* Link para Alunos */}
       <Link
-        href={route('register')} // URL para a página de alunos
+        href={route('login')} // URL para a página de alunos
       >
         <span role="img" aria-label="Aluno">👨‍🎓</span>
         ALUNO
