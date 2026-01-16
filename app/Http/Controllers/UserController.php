@@ -12,6 +12,15 @@ class UserController extends Controller
      */
     public function destroy($id)
     {
+        // Verificar se o usuário tem permissão
+        $currentUser = auth()->user();
+        if (!in_array($currentUser->user_role, ['professor', 'secretaria'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Você não tem permissão para deletar usuários!'
+            ], 403);
+        }
+
         try {
             $user = User::findOrFail($id);
             
@@ -43,6 +52,15 @@ class UserController extends Controller
      */
     public function edit($id)
     {
+        // Verificar se o usuário tem permissão
+        $currentUser = auth()->user();
+        if (!in_array($currentUser->user_role, ['professor', 'secretaria'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Você não tem permissão para editar usuários!'
+            ], 403);
+        }
+
         try {
             $user = User::findOrFail($id);
             
@@ -63,6 +81,15 @@ class UserController extends Controller
      */
     public function update(Request $request, $id)
     {
+        // Verificar se o usuário tem permissão
+        $currentUser = auth()->user();
+        if (!in_array($currentUser->user_role, ['professor', 'secretaria'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Você não tem permissão para atualizar usuários!'
+            ], 403);
+        }
+
         try {
             $user = User::findOrFail($id);
             

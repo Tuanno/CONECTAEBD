@@ -8,7 +8,7 @@ export default function Dashboard() {
     const { props } = usePage();
     const user = props.auth.user;
     
-    const [classesOpen, setClassesOpen] = useState(true);
+    const [classesOpen, setClassesOpen] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [selectedClass, setSelectedClass] = useState('');
     const [students, setStudents] = useState([]);
@@ -59,11 +59,21 @@ export default function Dashboard() {
     }, [selectedClass]);
 
     const handleEditStudent = (studentId) => {
+        // Verificar permissão
+        if (!canRegisterStudents) {
+            alert('Você não tem permissão para editar usuários!');
+            return;
+        }
         // Usar o Link do Inertia para navegação
         window.location.href = route('edit-user', { id: studentId });
     };
 
     const handleDeleteStudent = async (studentId) => {
+        // Verificar permissão
+        if (!canRegisterStudents) {
+            alert('Você não tem permissão para deletar usuários!');
+            return;
+        }
         if (window.confirm('Tem certeza que deseja deletar este usuário? Esta ação não pode ser desfeita.')) {
             try {
                 const response = await axios.delete(`/api/users/${studentId}`);
@@ -363,30 +373,32 @@ export default function Dashboard() {
                                                             />
                                                         </td>
                                                         <td className="py-3 px-4">
-                                                            <div className="flex items-center justify-center gap-2">
-                                                                <button 
-                                                                    onClick={() => handleEditStudent(professor.id)}
-                                                                    className="p-1 hover:bg-gray-200 rounded transition-colors"
-                                                                    title="Editar usuário"
-                                                                >
-                                                                    <img 
-                                                                        src="https://img.icons8.com/ios-filled/50/edit--v1.png" 
-                                                                        alt="Editar"
-                                                                        className="w-6 h-6"
-                                                                    />
-                                                                </button>
-                                                                <button 
-                                                                    onClick={() => handleDeleteStudent(professor.id)}
-                                                                    className="p-1 hover:bg-gray-200 rounded transition-colors"
-                                                                    title="Deletar usuário"
-                                                                >
-                                                                    <img 
-                                                                        src="https://img.icons8.com/ios-filled/50/trash--v1.png" 
-                                                                        alt="Deletar"
-                                                                        className="w-6 h-6"
-                                                                    />
-                                                                </button>
-                                                            </div>
+                                                            {canRegisterStudents && (
+                                                                <div className="flex items-center justify-center gap-2">
+                                                                    <button 
+                                                                        onClick={() => handleEditStudent(professor.id)}
+                                                                        className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                                                        title="Editar usuário"
+                                                                    >
+                                                                        <img 
+                                                                            src="https://img.icons8.com/ios-filled/50/edit--v1.png" 
+                                                                            alt="Editar"
+                                                                            className="w-6 h-6"
+                                                                        />
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => handleDeleteStudent(professor.id)}
+                                                                        className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                                                        title="Deletar usuário"
+                                                                    >
+                                                                        <img 
+                                                                            src="https://img.icons8.com/ios-filled/50/trash--v1.png" 
+                                                                            alt="Deletar"
+                                                                            className="w-6 h-6"
+                                                                        />
+                                                                    </button>
+                                                                </div>
+                                                            )}
                                                         </td>
                                                     </tr>
 
@@ -458,30 +470,32 @@ export default function Dashboard() {
                                                             />
                                                         </td>
                                                         <td className="py-3 px-4">
-                                                            <div className="flex items-center justify-center gap-2">
-                                                                <button 
-                                                                    onClick={() => handleEditStudent(student.id)}
-                                                                    className="p-1 hover:bg-gray-200 rounded transition-colors"
-                                                                    title="Editar usuário"
-                                                                >
-                                                                    <img 
-                                                                        src="https://img.icons8.com/ios-filled/50/edit--v1.png" 
-                                                                        alt="Editar"
-                                                                        className="w-6 h-6"
-                                                                    />
-                                                                </button>
-                                                                <button 
-                                                                    onClick={() => handleDeleteStudent(student.id)}
-                                                                    className="p-1 hover:bg-gray-200 rounded transition-colors"
-                                                                    title="Deletar usuário"
-                                                                >
-                                                                    <img 
-                                                                        src="https://img.icons8.com/ios-filled/50/trash--v1.png" 
-                                                                        alt="Deletar"
-                                                                        className="w-6 h-6"
-                                                                    />
-                                                                </button>
-                                                            </div>
+                                                            {canRegisterStudents && (
+                                                                <div className="flex items-center justify-center gap-2">
+                                                                    <button 
+                                                                        onClick={() => handleEditStudent(student.id)}
+                                                                        className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                                                        title="Editar usuário"
+                                                                    >
+                                                                        <img 
+                                                                            src="https://img.icons8.com/ios-filled/50/edit--v1.png" 
+                                                                            alt="Editar"
+                                                                            className="w-6 h-6"
+                                                                        />
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => handleDeleteStudent(student.id)}
+                                                                        className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                                                        title="Deletar usuário"
+                                                                    >
+                                                                        <img 
+                                                                            src="https://img.icons8.com/ios-filled/50/trash--v1.png" 
+                                                                            alt="Deletar"
+                                                                            className="w-6 h-6"
+                                                                        />
+                                                                    </button>
+                                                                </div>
+                                                            )}
                                                         </td>
                                                     </tr>
 
