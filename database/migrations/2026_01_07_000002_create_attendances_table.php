@@ -27,6 +27,9 @@ return new class extends Migration
             // Oferta
             $table->decimal('offering', 8, 2)->nullable();   // Valor em reais
             
+            // Visitantes
+            $table->integer('visitors')->default(0);         // Quantidade de visitantes
+            
             $table->timestamps();
             
             // Impedir duplicatas: um aluno só tem um registro por data
