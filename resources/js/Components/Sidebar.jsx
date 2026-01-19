@@ -7,7 +7,7 @@ export default function Sidebar() {
       <img
   src="/imagens/logo.png"
   alt="Logo CONECTAEBD"
-  className="w-auto h-30 mb-6" // Ajuste as classes de tamanho (ex: h-10 para 40px de altura)
+  className="w-auto h-40 mb-4"
 />
 
       <button className="flex items-center gap-2 p-2 bg-white text-green-600 rounded hover:bg-green-100">

@@ -538,12 +538,14 @@ export default function Dashboard() {
                                         <p className="text-sm text-gray-600">
                                             Total de registros: <span className="font-bold">{students.length + (professor ? 1 : 0)}</span>
                                         </p>
-                                        <button 
-                                            onClick={handleSaveAttendance}
-                                            className="bg-[#4ade80] text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-500 transition-colors"
-                                        >
-                                            Salvar Frequência
-                                        </button>
+                                        {canRegisterStudents && (
+                                            <button 
+                                                onClick={handleSaveAttendance}
+                                                className="bg-[#4ade80] text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-500 transition-colors"
+                                            >
+                                                Salvar Frequência
+                                            </button>
+                                        )}
                                     </div>
 
                                     {/* CAMPOS OFERTA E VISITANTES */}
