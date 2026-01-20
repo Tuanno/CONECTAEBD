@@ -39,6 +39,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/attendances/{classGroup}/{date}', [AttendanceController::class, 'getByDateAndClass']);
     Route::delete('/api/attendances/{id}', [AttendanceController::class, 'destroy']);
     
+    // Rota para relatório de frequência
+    Route::get('/api/attendance-report', [AttendanceController::class, 'generateReport']);
+    Route::get('/attendance-report', function () {
+        return Inertia::render('AttendanceReport');
+    })->name('attendance-report');
+    
     // Rotas para usuários (editar e deletar)
     Route::get('/api/users/{id}', [UserController::class, 'edit']);
     Route::put('/api/users/{id}', [UserController::class, 'update']);
