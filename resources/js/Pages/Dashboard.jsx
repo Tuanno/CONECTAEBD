@@ -32,7 +32,7 @@ export default function Dashboard() {
     ];
 
     const menuItems = [
-        { label: 'RELATÓRIO', href: '#' },
+        { label: 'RELATÓRIO', href: '/attendance-report' },
         { label: 'HISTÓRICO', href: '#' },
     ];
 
