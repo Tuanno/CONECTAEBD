@@ -17,6 +17,7 @@ export default function AttendanceReport() {
     const [reportData, setReportData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const canAccessReport = user && (user.user_role === 'professor' || user.user_role === 'secretaria');
 
     const classes = [
         { name: 'TODAS', value: 'todas' },
@@ -82,6 +83,26 @@ export default function AttendanceReport() {
     const printReport = () => {
         window.print();
     };
+
+    if (!canAccessReport) {
+        return (
+            <AuthenticatedLayout>
+                <Head title="Acesso negado" />
+                <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+                    <div className="bg-white shadow-md rounded-lg p-6 max-w-lg text-center">
+                        <h1 className="text-2xl font-semibold text-gray-900 mb-2">Acesso restrito</h1>
+                        <p className="text-gray-600">Somente professores e secretaria podem acessar o relatório.</p>
+                        <Link
+                            href="/dashboard"
+                            className="mt-4 inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors"
+                        >
+                            ← Voltar para o Dashboard
+                        </Link>
+                    </div>
+                </div>
+            </AuthenticatedLayout>
+        );
+    }
 
     return (
         <AuthenticatedLayout>

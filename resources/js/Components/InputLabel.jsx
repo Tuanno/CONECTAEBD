@@ -4,6 +4,23 @@ export default function InputLabel({
     children,
     ...props
 }) {
+    const renderLabel = (text) => {
+        if (!text) return children;
+        
+        // Procura pelo asterisco e colore em vermelho
+        const parts = text.split('*');
+        if (parts.length > 1) {
+            return (
+                <>
+                    {parts[0]}
+                    <span className="text-red-600">*</span>
+                    {parts[1]}
+                </>
+            );
+        }
+        return text;
+    };
+
     return (
         <label
             {...props}
@@ -12,7 +29,7 @@ export default function InputLabel({
                 className
             }
         >
-            {value ? value : children}
+            {renderLabel(value)}
         </label>
     );
 }
