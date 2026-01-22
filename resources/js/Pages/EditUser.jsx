@@ -1,11 +1,13 @@
 import UserForm from '@/Components/UserForm';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
+import { useAlert } from '@/contexts/AlertContext';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 export default function EditUser({ id }) {
     const userId = id;
+    const { alert: showAlert } = useAlert();
     
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -20,7 +22,7 @@ export default function EditUser({ id }) {
             })
             .catch(error => {
                 console.error('Erro ao buscar usuário:', error);
-                alert('Erro ao carregar dados do usuário');
+                showAlert({ headline: 'Erro', title: 'ERROR MESSAGE', variant: 'error', message: 'Erro ao carregar dados do usuário' });
                 setLoading(false);
             });
     }, [userId]);
@@ -33,14 +35,14 @@ export default function EditUser({ id }) {
             const response = await axios.put(`/api/users/${userId}`, userData);
             
             if (response.data.success) {
-                alert('✓ Usuário atualizado com sucesso!');
+                showAlert({ headline: 'Feito!', title: 'SUCCESS MESSAGE', variant: 'info', message: '✓ Usuário atualizado com sucesso!' });
                 window.history.back();
             } else {
-                alert('Erro: ' + response.data.message);
+                showAlert({ headline: 'Erro', title: 'ERROR MESSAGE', variant: 'error', message: 'Erro: ' + response.data.message });
             }
         } catch (error) {
             console.error('Erro ao salvar:', error);
-            alert('Erro ao salvar usuário: ' + (error.response?.data?.message || error.message));
+            showAlert({ headline: 'Erro', title: 'ERROR MESSAGE', variant: 'error', message: 'Erro ao salvar usuário: ' + (error.response?.data?.message || error.message) });
         } finally {
             setSaving(false);
         }

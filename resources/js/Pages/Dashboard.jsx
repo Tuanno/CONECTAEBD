@@ -1,12 +1,14 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
+import { useAlert } from '@/contexts/AlertContext';
 import axios from 'axios';
 import React from 'react';
 
 export default function Dashboard() {
     const { props } = usePage();
     const user = props.auth.user;
+    const { alert: showAlert, confirm: showConfirm } = useAlert();
     
     const [classesOpen, setClassesOpen] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -62,7 +64,7 @@ export default function Dashboard() {
     const handleEditStudent = (studentId) => {
         // Verificar permissão
         if (!canRegisterStudents) {
-            alert('Você não tem permissão para editar usuários!');
+            showAlert({ message: 'Você não tem permissão para editar usuários!' });
             return;
         }
         // Usar o Link do Inertia para navegação
@@ -72,25 +74,26 @@ export default function Dashboard() {
     const handleDeleteStudent = async (studentId) => {
         // Verificar permissão
         if (!canRegisterStudents) {
-            alert('Você não tem permissão para deletar usuários!');
+            showAlert({ message: 'Você não tem permissão para deletar usuários!' });
             return;
         }
-        if (window.confirm('Tem certeza que deseja deletar este usuário? Esta ação não pode ser desfeita.')) {
+        const confirmed = await showConfirm({ message: 'Tem certeza que deseja deletar este usuário? Esta ação não pode ser desfeita.' });
+        if (confirmed) {
             try {
                 const response = await axios.delete(`/api/users/${studentId}`);
                 
                 if (response.data.success) {
-                    alert(`✓ ${response.data.message}`);
+                    showAlert({ headline: 'Feito!', message: `✓ ${response.data.message}`, title: 'SUCESSO', variant: 'info' });
                     // Recarregar a lista
                     const classToReload = selectedClass;
                     setSelectedClass('');
                     setTimeout(() => setSelectedClass(classToReload), 100);
                 } else {
-                    alert('Erro: ' + response.data.message);
+                    showAlert({ headline: 'Erro', message: 'Erro: ' + response.data.message, title: 'ERRO', variant: 'error' });
                 }
             } catch (error) {
                 console.error('Erro ao deletar:', error);
-                alert('Erro ao deletar usuário: ' + (error.response?.data?.message || error.message));
+                showAlert({ headline: 'Erro', message: 'Erro ao deletar usuário: ' + (error.response?.data?.message || error.message), title: 'ERRO', variant: 'error' });
             }
         }
     };
@@ -128,7 +131,7 @@ export default function Dashboard() {
 
     const handleSaveAttendance = async () => {
         if (!selectedClass || students.length === 0) {
-            alert('Selecione uma classe e certifique-se de que há alunos.');
+            showAlert({ message: 'Selecione uma classe e certifique-se de que há alunos.' });
             return;
         }
 
@@ -167,7 +170,7 @@ export default function Dashboard() {
             });
 
             if (response.data.success) {
-                alert(`✓ Frequência salva com sucesso! (${response.data.count} alunos registrados)`);
+                showAlert({ headline: 'Feito!', message: `✓ Frequência salva com sucesso! (${response.data.count} alunos registrados)`, title: 'SUCESSO', variant: 'info' });
                 // Limpar formulário
                 setAttendanceData({});
                 setOfferingValue('');
@@ -175,7 +178,7 @@ export default function Dashboard() {
             }
         } catch (error) {
             console.error('Erro ao salvar:', error);
-            alert('Erro ao salvar frequência: ' + (error.response?.data?.message || error.message));
+            showAlert({ headline: 'Erro', message: 'Erro ao salvar frequência: ' + (error.response?.data?.message || error.message), title: 'ERRO', variant: 'error' });
         }
     };
 
