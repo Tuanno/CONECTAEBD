@@ -40,38 +40,35 @@ export default function UserForm({
 
     return (
         <>
-            {/* Grid de 2 colunas para Nome e Email */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Nome */}
-                <div>
-                    <InputLabel htmlFor="name" value="Nome *" />
-                    <TextInput
-                        id="name"
-                        name="name"
-                        value={data.name || ''}
-                        className="mt-1 block w-full"
-                        autoComplete="name"
-                        onChange={handleChange}
-                        required
-                    />
-                    {errors.name && <InputError message={errors.name} className="mt-2" />}
-                </div>
+            {/* Nome */}
+            <div>
+                <InputLabel htmlFor="name" value="Nome *" />
+                <TextInput
+                    id="name"
+                    name="name"
+                    value={data.name || ''}
+                    className="mt-1 block w-full"
+                    autoComplete="name"
+                    onChange={handleChange}
+                    required
+                />
+                {errors.name && <InputError message={errors.name} className="mt-2" />}
+            </div>
 
-                {/* Email */}
-                <div>
-                    <InputLabel htmlFor="email" value="Email *" />
-                    <TextInput
-                        id="email"
-                        type="email"
-                        name="email"
-                        value={data.email || ''}
-                        className="mt-1 block w-full"
-                        autoComplete="username"
-                        onChange={handleChange}
-                        required
-                    />
-                    {errors.email && <InputError message={errors.email} className="mt-2" />}
-                </div>
+            {/* Email */}
+            <div className="mt-4">
+                <InputLabel htmlFor="email" value="Email *" />
+                <TextInput
+                    id="email"
+                    type="email"
+                    name="email"
+                    value={data.email || ''}
+                    className="mt-1 block w-full"
+                    autoComplete="username"
+                    onChange={handleChange}
+                    required
+                />
+                {errors.email && <InputError message={errors.email} className="mt-2" />}
             </div>
 
             {/* Data de Nascimento */}
@@ -88,54 +85,51 @@ export default function UserForm({
                 {errors.birth_date && <InputError message={errors.birth_date} className="mt-2" />}
             </div>
 
-            {/* Grid de 2 colunas para Tipo e Classe */}
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Tipo de usuário */}
-                <div>
-                    <InputLabel htmlFor="user_role" value="Tipo de usuário *" />
-                    <select
-                        id="user_role"
-                        name="user_role"
-                        value={data.user_role || ''}
-                        className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                        onChange={handleChange}
-                        required
-                    >
-                        <option value="">Selecione...</option>
-                        {roles.map(role => (
-                            <option key={role.value} value={role.value}>
-                                {role.name}
-                            </option>
-                        ))}
-                    </select>
-                    {errors.user_role && <InputError message={errors.user_role} className="mt-2" />}
-                </div>
-
-                {/* Classe */}
-                <div>
-                    <InputLabel htmlFor="class_group" value="Classe" />
-                    <select
-                        id="class_group"
-                        name="class_group"
-                        value={data.class_group || ''}
-                        className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                        onChange={handleChange}
-                    >
-                        <option value="">Selecione...</option>
-                        {classes.map(cls => (
-                            <option key={cls.value} value={cls.value}>
-                                {cls.name}
-                            </option>
-                        ))}
-                    </select>
-                    {errors.class_group && <InputError message={errors.class_group} className="mt-2" />}
-                </div>
+            {/* Tipo de usuário */}
+            <div className="mt-4">
+                <InputLabel htmlFor="user_role" value="Tipo de usuário *" />
+                <select
+                    id="user_role"
+                    name="user_role"
+                    value={data.user_role || ''}
+                    className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    onChange={handleChange}
+                    required
+                >
+                    <option value="">Selecione...</option>
+                    {roles.map(role => (
+                        <option key={role.value} value={role.value}>
+                            {role.name}
+                        </option>
+                    ))}
+                </select>
+                {errors.user_role && <InputError message={errors.user_role} className="mt-2" />}
             </div>
 
-            {/* Grid de 2 colunas para Senhas */}
+            {/* Classe */}
+            <div className="mt-4">
+                <InputLabel htmlFor="class_group" value="Classe" />
+                <select
+                    id="class_group"
+                    name="class_group"
+                    value={data.class_group || ''}
+                    className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    onChange={handleChange}
+                >
+                    <option value="">Selecione...</option>
+                    {classes.map(cls => (
+                        <option key={cls.value} value={cls.value}>
+                            {cls.name}
+                        </option>
+                    ))}
+                </select>
+                {errors.class_group && <InputError message={errors.class_group} className="mt-2" />}
+            </div>
+
+            {/* Senhas */}
             {!isEditing && (
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                <>
+                    <div className="mt-4">
                         <InputLabel htmlFor="password" value="Senha *" />
                         <div className="mt-1 relative">
                             <TextInput
@@ -160,7 +154,7 @@ export default function UserForm({
                         {errors.password && <InputError message={errors.password} className="mt-2" />}
                     </div>
 
-                    <div>
+                    <div className="mt-4">
                         <InputLabel
                             htmlFor="password_confirmation"
                             value="Confirmar Senha *"
@@ -189,7 +183,7 @@ export default function UserForm({
                             <InputError message={errors.password_confirmation} className="mt-2" />
                         )}
                     </div>
-                </div>
+                </>
             )}
 
             {/* Botões - apenas para edição */}
