@@ -23,6 +23,7 @@ export default function Dashboard() {
     
     // Verificar se o usuário pode cadastrar alunos (professor ou secretaria)
     const canRegisterStudents = user && (user.user_role === 'professor' || user.user_role === 'secretaria');
+    const canAccessReport = canRegisterStudents;
 
     const classes = [
         { name: 'ADULTO', value: 'adulto' },
@@ -32,8 +33,8 @@ export default function Dashboard() {
     ];
 
     const menuItems = [
-        { label: 'RELATÓRIO', href: '/attendance-report' },
-        { label: 'HISTÓRICO', href: '#' },
+        ...(canAccessReport ? [{ label: 'RELATÓRIO', href: '/attendance-report' }] : []),
+        { label: 'HISTÓRICO', href: '/attendance-history' },
     ];
 
     // Buscar alunos quando uma classe é selecionada

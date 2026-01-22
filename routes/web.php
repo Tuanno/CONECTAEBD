@@ -42,8 +42,17 @@ Route::middleware('auth')->group(function () {
     // Rota para relatório de frequência
     Route::get('/api/attendance-report', [AttendanceController::class, 'generateReport']);
     Route::get('/attendance-report', function () {
+        $user = auth()->user();
+        abort_unless($user && in_array($user->user_role, ['professor', 'secretaria']), 403);
+
         return Inertia::render('AttendanceReport');
     })->name('attendance-report');
+    
+    // Rota para histórico de frequência
+    Route::get('/api/attendance-history', [AttendanceController::class, 'getStudentHistory']);
+    Route::get('/attendance-history', function () {
+        return Inertia::render('AttendanceHistory');
+    })->name('attendance-history');
     
     // Rotas para usuários (editar e deletar)
     Route::get('/api/users/{id}', [UserController::class, 'edit']);

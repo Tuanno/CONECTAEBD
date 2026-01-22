@@ -104,6 +104,14 @@ class AttendanceController extends Controller
      */
     public function generateReport(Request $request)
     {
+        $user = $request->user();
+        if (!$user || !in_array($user->user_role, ['professor', 'secretaria'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Acesso nao autorizado para gerar relatórios.',
+            ], 403);
+        }
+
         $validated = $request->validate([
             'period_type' => 'required|in:trimestral,anual',
             'year' => 'required|integer|min:2020|max:2100',
@@ -201,5 +209,158 @@ class AttendanceController extends Controller
             'totals' => $totals,
             'available_classes' => ['adulto', 'juvenil', 'infantil', 'pre-adolescente'],
         ]);
+    }
+
+    /**
+     * Buscar histórico de frequência de um aluno específico
+     */
+    public function getStudentHistory(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'student_name' => 'nullable|string',
+                'class_group' => 'nullable|in:adulto,juvenil,infantil,pre-adolescente',
+                'period_type' => 'required|in:mensal,trimestral,anual',
+                'year' => 'required|integer|min:2020|max:2100',
+                'month' => 'nullable|integer|min:1|max:12',
+            ]);
+
+            $periodType = $validated['period_type'];
+            $year = $validated['year'];
+            $month = $validated['month'] ?? null;
+
+            // Buscar aluno se nome foi fornecido
+            $studentQuery = null;
+            if (!empty($validated['student_name'])) {
+                $studentQuery = \App\Models\User::where('name', 'like', '%' . $validated['student_name'] . '%');
+                
+                if (!empty($validated['class_group'])) {
+                    $studentQuery->where('class_group', $validated['class_group']);
+                }
+                
+                $student = $studentQuery->first();
+                
+                if (!$student) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Aluno não encontrado',
+                    ], 404);
+                }
+            } else if (!empty($validated['class_group'])) {
+                // Se não forneceu nome mas forneceu turma, retornar erro
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Por favor, informe o nome do aluno',
+                ], 400);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Por favor, informe o nome do aluno ou selecione uma turma',
+                ], 400);
+            }
+
+        // Definir período de busca
+        $startDate = "$year-01-01";
+        $endDate = "$year-12-31";
+
+        if ($periodType === 'mensal' && $month) {
+            $startDate = sprintf("%d-%02d-01", $year, $month);
+            $endDate = date("Y-m-t", strtotime($startDate));
+        } else if ($periodType === 'trimestral') {
+            // Calcular trimestre baseado no mês atual se não especificado
+            $currentMonth = $month ?? date('n');
+            if ($currentMonth <= 3) {
+                $startDate = "$year-01-01";
+                $endDate = "$year-03-31";
+            } else if ($currentMonth <= 6) {
+                $startDate = "$year-04-01";
+                $endDate = "$year-06-30";
+            } else if ($currentMonth <= 9) {
+                $startDate = "$year-07-01";
+                $endDate = "$year-09-30";
+            } else {
+                $startDate = "$year-10-01";
+                $endDate = "$year-12-31";
+            }
+        }
+
+        // Buscar frequências do aluno
+        $attendances = Attendance::where('user_id', $student->id)
+            ->whereBetween('attendance_date', [$startDate, $endDate])
+            ->orderBy('attendance_date', 'desc')
+            ->get();
+
+        // Calcular totais do ano para o aluno
+        $yearAttendances = Attendance::where('user_id', $student->id)
+            ->whereBetween('attendance_date', ["$year-01-01", "$year-12-31"])
+            ->get();
+
+        // Agrupar por mês para exibição trimestral
+        $monthlyData = [];
+        if ($periodType === 'trimestral') {
+            $grouped = $attendances->groupBy(function ($item) {
+                return $item->attendance_date->format('Y-m');
+            });
+
+            foreach ($grouped as $yearMonth => $items) {
+                $monthName = date('M', strtotime($yearMonth . '-01'));
+                $totalClasses = $items->count();
+                $presents = $items->where('status', 'presente')->count();
+                $absents = $items->where('status', 'ausente')->count();
+                
+                $monthlyData[] = [
+                    'month' => $monthName,
+                    'total_classes' => $totalClasses,
+                    'presents' => $presents,
+                    'absents' => $absents,
+                    'observations' => '',
+                ];
+            }
+        }
+
+        // Calcular estatísticas
+        $totalClasses = $yearAttendances->count();
+        $presents = $yearAttendances->where('status', 'presente')->count();
+        $absents = $yearAttendances->where('status', 'ausente')->count();
+        $attendancePercentage = $totalClasses > 0 ? round(($presents / $totalClasses) * 100) : 0;
+
+        return response()->json([
+            'success' => true,
+            'student' => [
+                'id' => $student->id,
+                'name' => $student->name,
+                'class_group' => $student->class_group,
+            ],
+            'period' => [
+                'type' => $periodType,
+                'year' => $year,
+                'month' => $month,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ],
+            'summary' => [
+                'total_classes' => $totalClasses,
+                'presents' => $presents,
+                'absents' => $absents,
+                'attendance_percentage' => $attendancePercentage,
+            ],
+            'monthly_data' => $monthlyData,
+            'attendances' => $attendances->map(function ($attendance) {
+                return [
+                    'id' => $attendance->id,
+                    'date' => $attendance->attendance_date->format('Y-m-d'),
+                    'status' => $attendance->status,
+                    'bible' => $attendance->bible,
+                    'magazine' => $attendance->magazine,
+                ];
+            }),
+        ]);
+        } catch (\Exception $e) {
+            \Log::error('Erro ao buscar histórico: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao processar a solicitação: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }
