@@ -1,9 +1,12 @@
 import UserForm from '@/Components/UserForm';
 import GuestLayout from '@/Layouts/GuestLayout';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { UserPlus } from 'lucide-react';
 
 export default function Register() {
+    const { props } = usePage();
+    const user = props.auth?.user;
+    
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         email: '',
@@ -24,6 +27,11 @@ export default function Register() {
             <Head title="Register" />
             <div className="w-full max-w-2xl mx-auto px-4">
                 <div className="bg-white shadow-xl rounded-2xl p-6 border border-gray-100">
+                    {user && (
+                        <Link href="/dashboard" className="text-indigo-600 hover:text-indigo-700 mb-4 inline-block font-medium">
+                            ← Voltar
+                        </Link>
+                    )}
                     <div className="flex items-start gap-4 mb-8">
                         <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-sm flex-shrink-0 mt-1">
                             <UserPlus className="w-6 h-6" />

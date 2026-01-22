@@ -138,6 +138,135 @@ class AttendanceController extends Controller
         }
     }
 
+    /**
+     * Gerar relatório de frequência
+     */
+    public function generateReport(Request $request)
+    {
+        \Log::info('generateReport chamado', $request->all());
+        
+        try {
+            $validated = $request->validate([
+                'period_type' => 'required|in:mensal,trimestral,anual',
+                'year' => 'required|integer|min:2020|max:2100',
+                'class_group' => 'nullable|in:adulto,juvenil,infantil,pre-adolescente',
+            ]);
+
+            $periodType = $validated['period_type'];
+            $year = $validated['year'];
+            $classGroup = $validated['class_group'] ?? null;
+            
+            \Log::info('Parametros validados', ['period' => $periodType, 'year' => $year, 'class' => $classGroup]);
+
+            // Definir período
+            $startDate = "$year-01-01";
+            $endDate = "$year-12-31";
+
+            // Query base
+            $query = Attendance::whereBetween('attendance_date', [$startDate, $endDate]);
+
+            if ($classGroup) {
+                $query->where('class_group', $classGroup);
+            }
+
+            $attendances = $query->get();
+
+            // Agrupar por data e classe para não duplicar oferta/visitantes
+            $groupedAll = $attendances->groupBy(function ($att) {
+                return $att->attendance_date->format('Y-m-d') . '|' . $att->class_group;
+            });
+
+            $totals = [
+                'presents' => $attendances->where('status', 'presente')->count(),
+                'absents' => $attendances->where('status', 'ausente')->count(),
+                'with_bible' => $attendances->where('bible', true)->count(),
+                'with_magazine' => $attendances->where('magazine', true)->count(),
+                'total_offering' => $groupedAll->sum(function ($group) {
+                    return (float) ($group->first()->offering ?? 0);
+                }),
+                'total_visitors' => $groupedAll->sum(function ($group) {
+                    return (int) ($group->first()->visitors ?? 0);
+                }),
+            ];
+
+            $periods = [];
+            if ($periodType === 'trimestral') {
+                $periods = [
+                    ['name' => '1º Trimestre', 'start' => "$year-01-01", 'end' => "$year-03-31"],
+                    ['name' => '2º Trimestre', 'start' => "$year-04-01", 'end' => "$year-06-30"],
+                    ['name' => '3º Trimestre', 'start' => "$year-07-01", 'end' => "$year-09-30"],
+                    ['name' => '4º Trimestre', 'start' => "$year-10-01", 'end' => "$year-12-31"],
+                ];
+            } elseif ($periodType === 'mensal') {
+                for ($month = 1; $month <= 12; $month++) {
+                    $monthStart = sprintf("%d-%02d-01", $year, $month);
+                    $monthEnd = date("Y-m-t", strtotime($monthStart));
+                    $monthName = date('F', strtotime($monthStart));
+                    $periods[] = ['name' => $monthName, 'start' => $monthStart, 'end' => $monthEnd];
+                }
+            } else {
+                $periods[] = ['name' => "Ano $year", 'start' => $startDate, 'end' => $endDate];
+            }
+
+            $periodData = [];
+
+            foreach ($periods as $period) {
+                $periodAttendances = $attendances->filter(function ($att) use ($period) {
+                    $date = $att->attendance_date->format('Y-m-d');
+                    return $date >= $period['start'] && $date <= $period['end'];
+                });
+
+                $periodGrouped = $periodAttendances->groupBy(function ($att) {
+                    return $att->attendance_date->format('Y-m-d') . '|' . $att->class_group;
+                });
+
+                $periodData[] = [
+                    'period_name' => $period['name'],
+                    'presents' => $periodAttendances->where('status', 'presente')->count(),
+                    'absents' => $periodAttendances->where('status', 'ausente')->count(),
+                    'with_bible' => $periodAttendances->where('bible', true)->count(),
+                    'with_magazine' => $periodAttendances->where('magazine', true)->count(),
+                    'total_offering' => $periodGrouped->sum(function ($group) {
+                        return (float) ($group->first()->offering ?? 0);
+                    }),
+                    'total_visitors' => $periodGrouped->sum(function ($group) {
+                        return (int) ($group->first()->visitors ?? 0);
+                    }),
+                    'details' => $periodGrouped->map(function ($group) {
+                        $first = $group->first();
+                        return [
+                            'date' => $first->attendance_date->format('Y-m-d'),
+                            'class_group' => $first->class_group,
+                            'presents' => $group->where('status', 'presente')->count(),
+                            'absents' => $group->where('status', 'ausente')->count(),
+                            'with_bible' => $group->where('bible', true)->count(),
+                            'with_magazine' => $group->where('magazine', true)->count(),
+                            'offering' => (float) ($first->offering ?? 0),
+                            'visitors' => (int) ($first->visitors ?? 0),
+                        ];
+                    })->values(),
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $periodData,
+                'totals' => $totals,
+                'summary' => [
+                    'period_type' => $periodType,
+                    'year' => $year,
+                    'class_group' => $classGroup,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Erro ao gerar relatório: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao gerar relatório: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
     private function buildStudentHistory($student, string $periodType, int $year, ?int $month)
     {
         $startDate = "$year-01-01";

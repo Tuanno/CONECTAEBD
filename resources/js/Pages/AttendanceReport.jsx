@@ -37,13 +37,21 @@ export default function AttendanceReport() {
         setLoading(true);
         setError('');
         try {
+            console.log('Gerando relatório com params:', {
+                period_type: periodType,
+                year: year,
+                class_group: classGroup === 'todas' ? null : classGroup,
+            });
+            
             const response = await axios.get('/api/attendance-report', {
                 params: {
                     period_type: periodType,
                     year: year,
-                    class_group: classGroup,
+                    class_group: classGroup === 'todas' ? null : classGroup,
                 },
             });
+
+            console.log('Resposta recebida:', response.data);
 
             if (response.data.success) {
                 setReportData(response.data);
@@ -51,8 +59,9 @@ export default function AttendanceReport() {
                 setError('Erro ao gerar relatório');
             }
         } catch (err) {
-            setError('Erro ao buscar dados do relatório: ' + err.message);
-            console.error(err);
+            console.error('Erro completo:', err);
+            console.error('Resposta do erro:', err.response);
+            setError('Erro ao buscar dados do relatório: ' + (err.response?.data?.message || err.message));
         } finally {
             setLoading(false);
         }
@@ -63,6 +72,14 @@ export default function AttendanceReport() {
             style: 'currency',
             currency: 'BRL',
         }).format(value);
+    };
+
+    const formatDateBR = (value) => {
+        if (!value) return '';
+        const parts = value.split('-');
+        if (parts.length !== 3) return value;
+        const [year, month, day] = parts;
+        return `${day}/${month}/${year}`;
     };
 
     const exportToPDF = () => {
@@ -410,7 +427,7 @@ export default function AttendanceReport() {
                                                             {periodIdx === 0 || period.period_name ? period.period_name : ''}
                                                         </td>
                                                         <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                                            {detail.date}
+                                                            {formatDateBR(detail.date)}
                                                         </td>
                                                         <td className="px-6 py-4 text-sm text-gray-600 uppercase">
                                                             {detail.class_group}
