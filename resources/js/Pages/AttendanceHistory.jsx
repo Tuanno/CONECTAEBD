@@ -9,6 +9,7 @@ export default function AttendanceHistory() {
     const { props } = usePage();
     const user = props.auth.user;
     const isStudent = user && user.user_role === 'aluno';
+    const isStaff = user && (user.user_role === 'professor' || user.user_role === 'secretaria');
     
     const currentYear = new Date().getFullYear();
     const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
@@ -46,8 +47,15 @@ export default function AttendanceHistory() {
     ];
 
     const handleSearch = async () => {
-        if (!studentName) {
-            setError('Por favor, informe o nome do aluno');
+        const classOnlySearch = !studentName && selectedClass;
+
+        if (!studentName && !selectedClass) {
+            setError('Informe o nome do aluno ou selecione uma turma');
+            return;
+        }
+
+        if (classOnlySearch && !isStaff) {
+            setError('Apenas professor ou secretaria podem buscar uma turma inteira');
             return;
         }
 
@@ -70,7 +78,6 @@ export default function AttendanceHistory() {
                 }
             });
 
-            console.log('Response:', response.data);
             setHistoryData(response.data);
         } catch (err) {
             console.error('Error:', err);
@@ -334,63 +341,121 @@ export default function AttendanceHistory() {
                     {/* Resultados */}
                     {historyData && (
                         <div className="space-y-6">
-                            {/* Resumo de Frequência */}
-                            <div className="bg-white shadow-lg rounded-xl p-6">
-                                <h3 className="text-lg font-bold text-gray-800 mb-4">
-                                    Resumo de Frequência
-                                </h3>
-                                <div className="mb-4">
-                                    <p className="text-sm text-gray-600">
-                                        Ano: {historyData.period.year} • Período: {historyData.period.type === 'mensal' ? 'Mensal' : historyData.period.type === 'trimestral' ? 'Trimestral' : 'Anual'}
-                                        {historyData.student?.class_group && (
-                                            <> • Turma: <span className="font-semibold uppercase">{historyData.student.class_group.replace('-', ' ')}</span></>
-                                        )}
-                                    </p>
+                            {/* Quando for pesquisa por turma completa */}
+                            {historyData.mode === 'class' && historyData.students && (
+                                <div className="bg-white shadow-lg rounded-xl p-6">
+                                    <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+                                        <h3 className="text-lg font-bold text-gray-800">Turma: <span className="uppercase">{historyData.class_group}</span></h3>
+                                        <p className="text-sm text-gray-600">Ano: {historyData.period.year} • Período: {historyData.period.type === 'mensal' ? 'Mensal' : historyData.period.type === 'trimestral' ? 'Trimestral' : 'Anual'}</p>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {historyData.students.map((studentHistory) => (
+                                            <div key={studentHistory.student.id} className="border border-gray-200 rounded-lg p-4">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div>
+                                                        <p className="text-sm text-gray-500 uppercase">Aluno</p>
+                                                        <h4 className="text-xl font-bold text-gray-800">{studentHistory.student.name}</h4>
+                                                        <p className="text-xs text-gray-500 uppercase">Turma: {studentHistory.student.class_group}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-sm text-gray-500">Presença</p>
+                                                        <p className="text-2xl font-extrabold text-green-600">{studentHistory.summary.attendance_percentage}%</p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-3 gap-3 text-center">
+                                                    <div className="bg-green-50 border border-green-100 rounded-md p-3">
+                                                        <p className="text-xs text-gray-600">Presenças</p>
+                                                        <p className="text-lg font-bold text-green-700">{studentHistory.summary.presents}</p>
+                                                    </div>
+                                                    <div className="bg-red-50 border border-red-100 rounded-md p-3">
+                                                        <p className="text-xs text-gray-600">Faltas</p>
+                                                        <p className="text-lg font-bold text-red-700">{studentHistory.summary.absents}</p>
+                                                    </div>
+                                                    <div className="bg-blue-50 border border-blue-100 rounded-md p-3">
+                                                        <p className="text-xs text-gray-600">Aulas</p>
+                                                        <p className="text-lg font-bold text-blue-700">{studentHistory.summary.total_classes}</p>
+                                                    </div>
+                                                </div>
+
+                                                {studentHistory.period.type === 'trimestral' && studentHistory.monthly_data && studentHistory.monthly_data.length > 0 && (
+                                                    <div className="mt-3">
+                                                        <p className="text-xs font-semibold text-gray-600 mb-1">Resumo trimestral</p>
+                                                        <div className="text-xs text-gray-700 bg-gray-50 rounded-md p-2 space-y-1">
+                                                            {groupMonthsByTrimester(studentHistory.monthly_data).map((trimester, idx) => (
+                                                                <div key={idx} className="flex justify-between">
+                                                                    <span>{trimester.period}</span>
+                                                                    <span className="font-semibold text-green-700">{trimester.presents}/{trimester.total_classes} presenças</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
+                            )}
 
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                                            <span className="text-sm font-medium text-gray-600">Presenças</span>
-                                        </div>
-                                        <p className="text-3xl font-bold text-green-700">
-                                            {historyData.summary.presents}
+                            {/* Resumo de Frequência para busca individual */}
+                            {historyData.mode !== 'class' && (
+                                <div className="bg-white shadow-lg rounded-xl p-6">
+                                    <h3 className="text-lg font-bold text-gray-800 mb-4">
+                                        Resumo de Frequência
+                                    </h3>
+                                    <div className="mb-4">
+                                        <p className="text-sm text-gray-600">
+                                            Ano: {historyData.period.year} • Período: {historyData.period.type === 'mensal' ? 'Mensal' : historyData.period.type === 'trimestral' ? 'Trimestral' : 'Anual'}
+                                            {historyData.student?.class_group && (
+                                                <> • Turma: <span className="font-semibold uppercase">{historyData.student.class_group.replace('-', ' ')}</span></>
+                                            )}
                                         </p>
                                     </div>
 
-                                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                                            <span className="text-sm font-medium text-gray-600">Faltas</span>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                                <span className="text-sm font-medium text-gray-600">Presenças</span>
+                                            </div>
+                                            <p className="text-3xl font-bold text-green-700">
+                                                {historyData.summary.presents}
+                                            </p>
                                         </div>
-                                        <p className="text-3xl font-bold text-red-700">
-                                            {historyData.summary.absents}
-                                        </p>
-                                    </div>
 
-                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-sm font-medium text-gray-600">Total de Aulas</span>
+                                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                                                <span className="text-sm font-medium text-gray-600">Faltas</span>
+                                            </div>
+                                            <p className="text-3xl font-bold text-red-700">
+                                                {historyData.summary.absents}
+                                            </p>
                                         </div>
-                                        <p className="text-3xl font-bold text-blue-700">
-                                            {historyData.summary.total_classes}
-                                        </p>
-                                    </div>
 
-                                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-sm font-medium text-gray-600">Percentual de Presença</span>
+                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-sm font-medium text-gray-600">Total de Aulas</span>
+                                            </div>
+                                            <p className="text-3xl font-bold text-blue-700">
+                                                {historyData.summary.total_classes}
+                                            </p>
                                         </div>
-                                        <p className="text-3xl font-bold text-purple-700">
-                                            {historyData.summary.attendance_percentage}%
-                                        </p>
+
+                                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-sm font-medium text-gray-600">Percentual de Presença</span>
+                                            </div>
+                                            <p className="text-3xl font-bold text-purple-700">
+                                                {historyData.summary.attendance_percentage}%
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
 
-                            {/* Histórico de Frequência */}
-                            {historyData?.period?.type === 'trimestral' && historyData?.monthly_data && historyData.monthly_data.length > 0 && (
+                            {/* Histórico de Frequência (individual) */}
+                            {historyData.mode !== 'class' && historyData?.period?.type === 'trimestral' && historyData?.monthly_data && historyData.monthly_data.length > 0 && (
                                 <div className="bg-white shadow-lg rounded-xl p-6">
                                     <h3 className="text-lg font-bold text-gray-800 mb-4">
                                         Histórico de Frequência
@@ -463,7 +528,7 @@ export default function AttendanceHistory() {
                             )}
 
                             {/* Mensagem quando não há histórico detalhado */}
-                            {historyData?.period?.type === 'trimestral' && (!historyData?.monthly_data || historyData.monthly_data.length === 0) && (
+                            {historyData.mode !== 'class' && historyData?.period?.type === 'trimestral' && (!historyData?.monthly_data || historyData.monthly_data.length === 0) && (
                                 <div className="bg-white shadow-lg rounded-xl p-6">
                                     <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
                                         <p className="text-gray-600">Nenhum registro de frequência encontrado para o período selecionado.</p>
@@ -472,7 +537,7 @@ export default function AttendanceHistory() {
                             )}
 
                             {/* Para período anual ou mensal sem dados mensais */}
-                            {historyData?.period?.type !== 'trimestral' && (
+                            {historyData.mode !== 'class' && historyData?.period?.type !== 'trimestral' && (
                                 <div className="bg-white shadow-lg rounded-xl p-6">
                                     <h3 className="text-lg font-bold text-gray-800 mb-4">
                                         Histórico de Frequência

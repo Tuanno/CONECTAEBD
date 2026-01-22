@@ -63,156 +63,13 @@ class AttendanceController extends Controller
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Erro ao salvar frequência: ' . $e->getMessage()
+                'message' => 'Erro ao salvar frequência: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Buscar frequência de uma data e classe
-     */
-    public function getByDateAndClass($classGroup, $date)
-    {
-        $attendances = Attendance::byClass($classGroup)
-            ->byDate($date)
-            ->with('user')
-            ->orderBy('user_id')
-            ->get();
-
-        return response()->json([
-            'attendances' => $attendances,
-            'total' => $attendances->count(),
-        ]);
-    }
-
-    /**
-     * Deletar frequência
-     */
-    public function destroy($id)
-    {
-        $attendance = Attendance::findOrFail($id);
-        $attendance->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Frequência removida com sucesso!'
-        ]);
-    }
-
-    /**
-     * Gerar relatório de frequência com filtros
-     */
-    public function generateReport(Request $request)
-    {
-        $user = $request->user();
-        if (!$user || !in_array($user->user_role, ['professor', 'secretaria'])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Acesso nao autorizado para gerar relatórios.',
-            ], 403);
-        }
-
-        $validated = $request->validate([
-            'period_type' => 'required|in:trimestral,anual',
-            'year' => 'required|integer|min:2020|max:2100',
-            'class_group' => 'required|in:todas,adulto,juvenil,infantil,pre-adolescente',
-        ]);
-
-        $periodType = $validated['period_type'];
-        $year = $validated['year'];
-        $classGroup = $validated['class_group'];
-
-        // Definir períodos conforme o tipo
-        $periods = [];
-        if ($periodType === 'trimestral') {
-            $periods = [
-                ['name' => 'Jan - Mar', 'start' => "$year-01-01", 'end' => "$year-03-31"],
-                ['name' => 'Abr - Jun', 'start' => "$year-04-01", 'end' => "$year-06-30"],
-                ['name' => 'Jul - Set', 'start' => "$year-07-01", 'end' => "$year-09-30"],
-                ['name' => 'Out - Dez', 'start' => "$year-10-01", 'end' => "$year-12-31"],
-            ];
-        } else {
-            $periods = [
-                ['name' => "Ano $year", 'start' => "$year-01-01", 'end' => "$year-12-31"],
-            ];
-        }
-
-        // Construir resposta com dados de cada período
-        $reportData = [];
-        $totals = [
-            'presents' => 0,
-            'absents' => 0,
-            'with_bible' => 0,
-            'with_magazine' => 0,
-            'total_offering' => 0,
-            'total_visitors' => 0,
-            'dates_count' => 0,
-        ];
-
-        foreach ($periods as $period) {
-            $query = Attendance::whereBetween('attendance_date', [$period['start'], $period['end']]);
-
-            if ($classGroup !== 'todas') {
-                $query->where('class_group', $classGroup);
-            }
-
-            $attendances = $query->get();
-
-            // Calcular estatísticas do período
-            $periodStats = [
-                'period_name' => $period['name'],
-                'presents' => $attendances->where('status', 'presente')->count(),
-                'absents' => $attendances->where('status', 'ausente')->count(),
-                'with_bible' => $attendances->where('bible', true)->count(),
-                'with_magazine' => $attendances->where('magazine', true)->count(),
-                'total_offering' => (float) $attendances->sum('offering'),
-                'total_visitors' => $attendances->sum('visitors'),
-                'unique_dates' => $attendances->pluck('attendance_date')->unique()->count(),
-                'details' => $attendances
-                    // separa por data e classe para não colapsar classes diferentes no mesmo dia
-                    ->groupBy(function ($item) {
-                        return $item->attendance_date->format('Y-m-d') . '|' . $item->class_group;
-                    })
-                    ->map(function ($group) {
-                        $first = $group->first();
-                        return [
-                            'date' => $first->attendance_date->format('d/m/Y'),
-                            'class_group' => $first->class_group,
-                            'presents' => $group->where('status', 'presente')->count(),
-                            'absents' => $group->where('status', 'ausente')->count(),
-                            'with_bible' => $group->where('bible', true)->count(),
-                            'with_magazine' => $group->where('magazine', true)->count(),
-                            'offering' => (float) $group->sum('offering'),
-                            'visitors' => $group->sum('visitors'),
-                        ];
-                    })
-                    ->values(),
-            ];
-
-            $reportData[] = $periodStats;
-
-            // Somar aos totais
-            $totals['presents'] += $periodStats['presents'];
-            $totals['absents'] += $periodStats['absents'];
-            $totals['with_bible'] += $periodStats['with_bible'];
-            $totals['with_magazine'] += $periodStats['with_magazine'];
-            $totals['total_offering'] += $periodStats['total_offering'];
-            $totals['total_visitors'] += $periodStats['total_visitors'];
-        }
-
-        return response()->json([
-            'success' => true,
-            'period_type' => $periodType,
-            'year' => $year,
-            'class_group' => $classGroup,
-            'data' => $reportData,
-            'totals' => $totals,
-            'available_classes' => ['adulto', 'juvenil', 'infantil', 'pre-adolescente'],
-        ]);
-    }
-
-    /**
-     * Buscar histórico de frequência de um aluno específico
+     * Buscar histórico de frequência de aluno ou turma
      */
     public function getStudentHistory(Request $request)
     {
@@ -228,38 +85,61 @@ class AttendanceController extends Controller
             $periodType = $validated['period_type'];
             $year = $validated['year'];
             $month = $validated['month'] ?? null;
+            $classGroup = $validated['class_group'] ?? null;
+            $studentName = $validated['student_name'] ?? null;
 
-            // Buscar aluno se nome foi fornecido
-            $studentQuery = null;
-            if (!empty($validated['student_name'])) {
-                $studentQuery = \App\Models\User::where('name', 'like', '%' . $validated['student_name'] . '%');
-                
-                if (!empty($validated['class_group'])) {
-                    $studentQuery->where('class_group', $validated['class_group']);
+            $user = $request->user();
+            $isStaff = $user && in_array($user->user_role, ['professor', 'secretaria']);
+
+            if (!empty($studentName)) {
+                $studentQuery = \App\Models\User::where('name', 'like', '%' . $studentName . '%');
+                if (!empty($classGroup)) {
+                    $studentQuery->where('class_group', $classGroup);
                 }
-                
                 $student = $studentQuery->first();
-                
                 if (!$student) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Aluno não encontrado',
-                    ], 404);
+                    return response()->json(['success' => false, 'message' => 'Aluno não encontrado'], 404);
                 }
-            } else if (!empty($validated['class_group'])) {
-                // Se não forneceu nome mas forneceu turma, retornar erro
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Por favor, informe o nome do aluno',
-                ], 400);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Por favor, informe o nome do aluno ou selecione uma turma',
-                ], 400);
+                $history = $this->buildStudentHistory($student, $periodType, $year, $month);
+                return response()->json(array_merge(['success' => true, 'mode' => 'student'], $history));
             }
 
-        // Definir período de busca
+            if (empty($studentName) && !empty($classGroup)) {
+                if (!$isStaff) {
+                    return response()->json(['success' => false, 'message' => 'Acesso negado para listar uma turma inteira'], 403);
+                }
+                $students = \App\Models\User::where('class_group', $classGroup)
+                    ->where('user_role', 'aluno')
+                    ->orderBy('name')
+                    ->get();
+                if ($students->isEmpty()) {
+                    return response()->json(['success' => false, 'message' => 'Nenhum aluno encontrado para esta turma'], 404);
+                }
+                $histories = $students->map(function ($student) use ($periodType, $year, $month) {
+                    return $this->buildStudentHistory($student, $periodType, $year, $month);
+                })->values();
+                return response()->json([
+                    'success' => true,
+                    'mode' => 'class',
+                    'class_group' => $classGroup,
+                    'period' => [
+                        'type' => $periodType,
+                        'year' => $year,
+                        'month' => $month,
+                    ],
+                    'students' => $histories,
+                ]);
+            }
+
+            return response()->json(['success' => false, 'message' => 'Por favor, informe o nome do aluno ou selecione uma turma'], 400);
+        } catch (\Exception $e) {
+            \Log::error('Erro ao buscar histórico: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Erro interno ao buscar histórico'], 500);
+        }
+    }
+
+    private function buildStudentHistory($student, string $periodType, int $year, ?int $month)
+    {
         $startDate = "$year-01-01";
         $endDate = "$year-12-31";
 
@@ -267,7 +147,6 @@ class AttendanceController extends Controller
             $startDate = sprintf("%d-%02d-01", $year, $month);
             $endDate = date("Y-m-t", strtotime($startDate));
         } else if ($periodType === 'trimestral') {
-            // Calcular trimestre baseado no mês atual se não especificado
             $currentMonth = $month ?? date('n');
             if ($currentMonth <= 3) {
                 $startDate = "$year-01-01";
@@ -284,30 +163,25 @@ class AttendanceController extends Controller
             }
         }
 
-        // Buscar frequências do aluno
         $attendances = Attendance::where('user_id', $student->id)
             ->whereBetween('attendance_date', [$startDate, $endDate])
             ->orderBy('attendance_date', 'desc')
             ->get();
 
-        // Calcular totais do ano para o aluno
         $yearAttendances = Attendance::where('user_id', $student->id)
             ->whereBetween('attendance_date', ["$year-01-01", "$year-12-31"])
             ->get();
 
-        // Agrupar por mês para exibição trimestral
         $monthlyData = [];
         if ($periodType === 'trimestral') {
             $grouped = $attendances->groupBy(function ($item) {
                 return $item->attendance_date->format('Y-m');
             });
-
             foreach ($grouped as $yearMonth => $items) {
                 $monthName = date('M', strtotime($yearMonth . '-01'));
                 $totalClasses = $items->count();
                 $presents = $items->where('status', 'presente')->count();
                 $absents = $items->where('status', 'ausente')->count();
-                
                 $monthlyData[] = [
                     'month' => $monthName,
                     'total_classes' => $totalClasses,
@@ -318,14 +192,12 @@ class AttendanceController extends Controller
             }
         }
 
-        // Calcular estatísticas
         $totalClasses = $yearAttendances->count();
         $presents = $yearAttendances->where('status', 'presente')->count();
         $absents = $yearAttendances->where('status', 'ausente')->count();
         $attendancePercentage = $totalClasses > 0 ? round(($presents / $totalClasses) * 100) : 0;
 
-        return response()->json([
-            'success' => true,
+        return [
             'student' => [
                 'id' => $student->id,
                 'name' => $student->name,
@@ -354,13 +226,6 @@ class AttendanceController extends Controller
                     'magazine' => $attendance->magazine,
                 ];
             }),
-        ]);
-        } catch (\Exception $e) {
-            \Log::error('Erro ao buscar histórico: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Erro ao processar a solicitação: ' . $e->getMessage(),
-            ], 500);
-        }
+        ];
     }
 }
