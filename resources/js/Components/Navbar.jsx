@@ -17,7 +17,10 @@ export default function Navbar() {
 
   return (
     <nav className="bg-green-500 flex justify-between items-center px-6 py-3 text-black font-semibold">
-      <Link href="/">CONECTAEBD</Link>
+      <Link href="/" className="flex items-center gap-2">
+        <img src="/imagens/logo.png" alt="Logotipo CONECTAEBD" className="h-14 w-auto" />
+        <span className="text-lg font-bold">CONECTAEBD</span>
+      </Link>
 
       <div className="flex items-center gap-4">
         {user ? (
