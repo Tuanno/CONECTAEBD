@@ -297,10 +297,6 @@ class AttendanceController extends Controller
             ->orderBy('attendance_date', 'desc')
             ->get();
 
-        $yearAttendances = Attendance::where('user_id', $student->id)
-            ->whereBetween('attendance_date', ["$year-01-01", "$year-12-31"])
-            ->get();
-
         $monthlyData = [];
         if ($periodType === 'trimestral') {
             $grouped = $attendances->groupBy(function ($item) {
@@ -321,9 +317,10 @@ class AttendanceController extends Controller
             }
         }
 
-        $totalClasses = $yearAttendances->count();
-        $presents = $yearAttendances->where('status', 'presente')->count();
-        $absents = $yearAttendances->where('status', 'ausente')->count();
+        // Para o resumo, usar sempre o período filtrado (não o ano inteiro)
+        $totalClasses = $attendances->count();
+        $presents = $attendances->where('status', 'presente')->count();
+        $absents = $attendances->where('status', 'ausente')->count();
         $attendancePercentage = $totalClasses > 0 ? round(($presents / $totalClasses) * 100) : 0;
 
         return [
