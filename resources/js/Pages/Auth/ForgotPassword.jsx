@@ -19,6 +19,10 @@ export default function ForgotPassword({ status }) {
         <GuestLayout>
             <Head title="Forgot Password" />
 
+             <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+                Redefinir Senha
+            </h2>
+
             <div className="mb-4 text-sm text-gray-600">
                 Esqueceu sua senha? Sem problemas. 
                 Basta nos informar seu endereço de e-mail
@@ -47,7 +51,7 @@ export default function ForgotPassword({ status }) {
 
                 <div className="mt-4 flex items-center justify-end">
                     <PrimaryButton className="ms-4" disabled={processing}>
-                        Link para redefinir a senha do e-mail
+                        Redefinir senha
                     </PrimaryButton>
                 </div>
             </form>
