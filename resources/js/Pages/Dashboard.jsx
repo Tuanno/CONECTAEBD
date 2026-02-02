@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAlert } from '@/contexts/AlertContext';
 import axios from 'axios';
 import React from 'react';
@@ -23,6 +23,10 @@ export default function Dashboard() {
     // Estado para rastrear presença e materiais de cada aluno
     const [attendanceData, setAttendanceData] = useState({});
     
+    // Estado para rastrear swipe
+    const touchStartX = useRef(0);
+    const touchEndX = useRef(0);
+    
     // Verificar se o usuário pode cadastrar alunos (professor ou secretaria)
     const canRegisterStudents = user && (user.user_role === 'professor' || user.user_role === 'secretaria');
     const canAccessReport = canRegisterStudents;
@@ -38,6 +42,30 @@ export default function Dashboard() {
         ...(canAccessReport ? [{ label: 'RELATÓRIO', href: '/attendance-report' }] : []),
         { label: 'HISTÓRICO', href: '/attendance-history' },
     ];
+
+    // Detectar swipe para abrir/fechar sidebar
+    const handleTouchStart = (e) => {
+        touchStartX.current = e.changedTouches[0].clientX;
+    };
+
+    const handleTouchEnd = (e) => {
+        touchEndX.current = e.changedTouches[0].clientX;
+        detectSwipe();
+    };
+
+    const detectSwipe = () => {
+        const swipeThreshold = 50; // Mínimo de pixels para considerar um swipe
+        const difference = touchStartX.current - touchEndX.current;
+
+        // Swipe para esquerda (abre sidebar)
+        if (difference > swipeThreshold && !sidebarOpen) {
+            setSidebarOpen(true);
+        }
+        // Swipe para direita (fecha sidebar)
+        else if (difference < -swipeThreshold && sidebarOpen) {
+            setSidebarOpen(false);
+        }
+    };
 
     // Buscar alunos quando uma classe é selecionada
     useEffect(() => {
@@ -185,7 +213,11 @@ export default function Dashboard() {
     return (
         <AuthenticatedLayout>
 
-            <div className="flex flex-col md:flex-row min-h-screen bg-gray-100 relative">
+            <div 
+                className="flex flex-col md:flex-row min-h-screen bg-gray-100 relative"
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+            >
                 
                 {/* SIDEBAR */}
                 <aside className={`

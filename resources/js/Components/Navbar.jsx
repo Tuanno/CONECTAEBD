@@ -26,6 +26,7 @@ export default function Navbar() {
         {user ? (
           // Usuário autenticado: mostrar nome e opção de logout
           <>
+            <span className="sm:hidden text-sm">{user.name.split(' ')[0]}</span>
             <span className="hidden sm:inline">Olá, {user.name}</span>
             <Link
               href={route('logout')}
