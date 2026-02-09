@@ -3,12 +3,12 @@ import Sidebar from '@/Components/Sidebar';
 
 export default function Welcome() {
   return (
-    <div className="flex">
+    <div className="flex flex-col md:flex-row min-h-screen">
       {/* Sidebar */}
       <Sidebar />
 
       {/* Conteúdo principal */}
-      <div className="flex-1 p-10 bg-green-200 min-h-screen flex flex-col justify-center">
+      <div className="flex-1 p-6 md:p-10 bg-green-200 flex flex-col justify-center">
           <img
             src="/imagens/logo.png"
             alt="Logo CONECTAEBD"

@@ -4,7 +4,7 @@ import Navbar from '@/Components/Navbar';
 
 export default function AuthenticatedLayout({ header, children }) {
     return (
-        <div className="min-h-screen flex flex-col bg-gray-100">
+        <div className="min-h-screen flex flex-col bg-gray-100 overflow-x-auto">
             {/* 🔹 Usa a Navbar personalizada */}
             <Navbar />
 
@@ -18,7 +18,7 @@ export default function AuthenticatedLayout({ header, children }) {
             )}
 
             {/* 🔹 Conteúdo principal */}
-            <main className="flex-grow container mx-auto px-4 py-8">
+            <main className="flex-grow w-full md:container md:mx-auto px-4 py-8">
                 {children}
             </main>
 

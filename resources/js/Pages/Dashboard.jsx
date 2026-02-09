@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAlert } from '@/contexts/AlertContext';
 import axios from 'axios';
 import React from 'react';
+import { createPortal } from 'react-dom';
 
 export default function Dashboard() {
     const { props } = usePage();
@@ -18,6 +19,14 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(false);
     const [offeringValue, setOfferingValue] = useState('');
     const [visitorsValue, setVisitorsValue] = useState('');
+    const localToday = (() => {
+        const d = new Date();
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    })();
+    const [selectedDate, setSelectedDate] = useState(localToday);
     const [classToReload, setClassToReload] = useState('');
     
     // Estado para rastrear presença e materiais de cada aluno
@@ -38,6 +47,138 @@ export default function Dashboard() {
         { name: 'INFANTIL', value: 'infantil' },
     ];
 
+    // Garantir que, ao montar, exista uma data selecionada (hoje) caso esteja vazia
+    useEffect(() => {
+        if (!selectedDate) {
+            const today = new Date().toISOString().split('T')[0];
+            setSelectedDate(today);
+        }
+    }, []); // executa só na montagem
+
+    // Simple Tailwind-styled DatePicker component (inline, no external deps)
+    function DatePicker({ value, onChange, placeholder = '' }) {
+        const [open, setOpen] = useState(false);
+        const parseLocalFromISO = (s) => {
+            if (!s) return null;
+            const parts = String(s).split('-').map(Number);
+            if (parts.length < 3) return null;
+            return new Date(parts[0], parts[1] - 1, parts[2]);
+        };
+        const [currentMonth, setCurrentMonth] = useState(value ? parseLocalFromISO(value) : new Date());
+        const [selected, setSelected] = useState(value ? parseLocalFromISO(value) : null);
+        const ref = useRef(null);
+        const triggerRef = useRef(null);
+        const [portalPos, setPortalPos] = useState(null);
+
+        useEffect(() => {
+            const handleClickOutside = (e) => {
+                if ((ref.current && !ref.current.contains(e.target)) && !(triggerRef.current && triggerRef.current.contains(e.target))) {
+                    setOpen(false);
+                }
+            };
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }, []);
+
+        useEffect(() => {
+            if (value) {
+                const d = parseLocalFromISO(value);
+                if (d) {
+                    setSelected(d);
+                    setCurrentMonth(new Date(d.getFullYear(), d.getMonth(), 1));
+                }
+            } else {
+                setSelected(null);
+            }
+        }, [value]);
+
+        const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+        const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+
+        const days = [];
+        const startWeekDay = startOfMonth.getDay();
+        // Fill blanks for first week (Sunday=0)
+        for (let i = 0; i < startWeekDay; i++) days.push(null);
+        for (let d = 1; d <= endOfMonth.getDate(); d++) days.push(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), d));
+
+        const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+        function formatISO(d) {
+            if (!d) return '';
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${d.getFullYear()}-${mm}-${dd}`;
+        }
+
+        function formatDisplay(d) {
+            if (!d) return '';
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const yyyy = d.getFullYear();
+            return `${dd}/${mm}/${yyyy}`;
+        }
+
+        return (
+            <div className="relative" ref={ref}>
+                <div className="flex items-center gap-2">
+                    <button
+                        ref={triggerRef}
+                        type="button"
+                        onClick={() => {
+                            setOpen(!open);
+                            const rect = triggerRef.current?.getBoundingClientRect();
+                            if (rect) setPortalPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width });
+                        }}
+                        className="flex items-center gap-3 bg-white text-gray-800 px-4 py-2 rounded-full shadow-sm border border-gray-200"
+                    >
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3M3 11h18M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span className="text-sm text-gray-700">{selected ? formatDisplay(selected) : (placeholder || 'Select date')}</span>
+                    </button>
+                </div>
+
+                {open && createPortal(
+                    <div className="fixed inset-0 z-50 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)}></div>
+                        <div ref={ref} className="relative bg-white rounded-lg shadow-lg w-80 max-w-[95%] p-4 z-10">
+                            <div className="flex items-center justify-between mb-2">
+                                <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="p-1 rounded hover:bg-gray-100">
+                                    ‹
+                                </button>
+                                <div className="font-semibold">{monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}</div>
+                                <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="p-1 rounded hover:bg-gray-100">
+                                    ›
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-7 gap-1 text-xs text-center text-gray-500 mb-2">
+                                <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
+                            </div>
+
+                            <div className="grid grid-cols-7 gap-1 text-sm">
+                                {days.map((d, idx) => (
+                                    <div key={idx} className="text-center">
+                                        {d ? (
+                                            <button
+                                                onClick={() => { setSelected(d); onChange(formatISO(d)); setOpen(false); }}
+                                                className={`w-8 h-8 inline-flex items-center justify-center rounded-full ${selected && selected.toDateString() === d.toDateString() ? 'bg-green-500 text-white' : 'hover:bg-gray-100'}`}
+                                            >
+                                                {d.getDate()}
+                                            </button>
+                                        ) : (
+                                            <div className="w-8 h-8"></div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>, document.body
+                )}
+            </div>
+        );
+    }
+
     const menuItems = [
         ...(canAccessReport ? [{ label: 'RELATÓRIO', href: '/attendance-report' }] : []),
         { label: 'HISTÓRICO', href: '/attendance-history' },
@@ -56,13 +197,9 @@ export default function Dashboard() {
     const detectSwipe = () => {
         const swipeThreshold = 50; // Mínimo de pixels para considerar um swipe
         const difference = touchStartX.current - touchEndX.current;
-
-        // Swipe para esquerda (abre sidebar)
-        if (difference > swipeThreshold && !sidebarOpen) {
-            setSidebarOpen(true);
-        }
-        // Swipe para direita (fecha sidebar)
-        else if (difference < -swipeThreshold && sidebarOpen) {
+        // Apenas permitir fechar a sidebar por swipe para a direita quando ela já estiver aberta.
+        // Abrir a sidebar deve ocorrer somente pelo botão (menu) no cabeçalho.
+        if (difference < -swipeThreshold && sidebarOpen) {
             setSidebarOpen(false);
         }
     };
@@ -76,6 +213,10 @@ export default function Dashboard() {
                     setStudents(response.data.students || []);
                     setProfessor(response.data.professor || null);
                     setLoading(false);
+                    // limpar presença ao trocar de classe (carregamento só ao clicar em 'Editar registro')
+                    setAttendanceData({});
+                    setOfferingValue('');
+                    setVisitorsValue('');
                 })
                 .catch(error => {
                     console.error('Erro ao buscar alunos:', error);
@@ -88,6 +229,52 @@ export default function Dashboard() {
             setProfessor(null);
         }
     }, [selectedClass]);
+
+    // Observação: carregamento agora só ocorre quando o usuário clica em "Editar registro"
+
+    // Função para carregar presença de uma data/classe
+    const loadAttendance = async (classValue, dateValue, fetchedStudents = null, fetchedProfessor = null) => {
+        if (!classValue || !dateValue) return;
+        try {
+            const resp = await axios.get(`/api/attendances/${classValue}/${dateValue}`);
+            if (!resp.data.success) {
+                showAlert({ message: 'Erro ao carregar presença: ' + (resp.data.message || '') });
+                return;
+            }
+
+            const att = resp.data.attendances || [];
+            const dataMap = {};
+
+            att.forEach(a => {
+                if (a.user) {
+                    if (a.user.user_role === 'professor') {
+                        dataMap[`professor-${a.user.id}`] = {
+                            status: a.status,
+                            materials: { biblia: !!a.bible, revista: !!a.magazine }
+                        };
+                    } else {
+                        dataMap[a.user.id] = {
+                            status: a.status,
+                            materials: { biblia: !!a.bible, revista: !!a.magazine }
+                        };
+                    }
+                }
+            });
+
+            setAttendanceData(dataMap);
+            // Only prefill offering/visitors when there are attendance records for that date
+            if ((resp.data.attendances || []).length > 0 && resp.data.class_group) {
+                setOfferingValue(resp.data.class_group.offering ? String(resp.data.class_group.offering) : '');
+                setVisitorsValue(resp.data.class_group.visitors ? String(resp.data.class_group.visitors) : '');
+            } else {
+                setOfferingValue('');
+                setVisitorsValue('');
+            }
+        } catch (error) {
+            console.error('Erro ao carregar presença:', error);
+            showAlert({ message: 'Erro ao carregar presença: ' + (error.response?.data?.message || error.message) });
+        }
+    };
 
     const handleEditStudent = (studentId) => {
         // Verificar permissão
@@ -164,7 +351,7 @@ export default function Dashboard() {
         }
 
         // Preparar dados para enviar
-        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        const dateToSend = selectedDate || new Date().toISOString().split('T')[0]; // YYYY-MM-DD
         
         // Incluir professor se houver
         const attendances = [];
@@ -191,7 +378,7 @@ export default function Dashboard() {
         try {
             const response = await axios.post('/api/attendances', {
                 class_group: selectedClass,
-                attendance_date: today,
+                attendance_date: dateToSend,
                 offering: offeringValue ? parseFloat(offeringValue) : null,
                 visitors: visitorsValue ? parseInt(visitorsValue) : 0,
                 attendances: attendances,
@@ -203,6 +390,7 @@ export default function Dashboard() {
                 setAttendanceData({});
                 setOfferingValue('');
                 setVisitorsValue('');
+                setSelectedDate('');
             }
         } catch (error) {
             console.error('Erro ao salvar:', error);
@@ -230,37 +418,39 @@ export default function Dashboard() {
                     </div>
 
                     <div className="flex flex-col gap-3">
-                        {/* BOTÃO CLASSE */}
-                        <div className="flex flex-col">
-                            <button 
-                                onClick={() => setClassesOpen(!classesOpen)}
-                                className="flex items-center w-full bg-white rounded-xl p-4 shadow-sm active:scale-95 transition-transform"
-                            >
-                                <span className="font-bold text-gray-700 flex-1 text-left uppercase ml-2">Classe</span>
-                                <svg className={`w-5 h-5 transition-transform ${classesOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </button>
+                        {/* BOTÃO CLASSE - ocultar para usuários logados como 'aluno' */}
+                        {user && user.user_role !== 'aluno' && (
+                            <div className="flex flex-col">
+                                <button 
+                                    onClick={() => setClassesOpen(!classesOpen)}
+                                    className="flex items-center w-full bg-white rounded-xl p-4 shadow-sm active:scale-95 transition-transform"
+                                >
+                                    <span className="font-bold text-gray-700 flex-1 text-left uppercase ml-2">Classe</span>
+                                    <svg className={`w-5 h-5 transition-transform ${classesOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
 
-                            {/* SUBMENU */}
-                            {classesOpen && (
-                                <div className="bg-white mx-2 mt-[-10px] pt-4 pb-2 rounded-b-xl shadow-inner border-t border-gray-100 flex flex-col overflow-hidden">
-                                    {classes.map((item) => (
-                                        <button
-                                            key={item.name}
-                                            onClick={() => handleClassClick(item.value)}
-                                            className={`px-8 py-2 text-sm font-semibold text-left transition-colors uppercase ${
-                                                selectedClass === item.value 
-                                                    ? 'bg-green-100 text-[#4ade80]' 
-                                                    : 'text-gray-600 hover:bg-green-50 hover:text-[#4ade80]'
-                                            }`}
-                                        >
-                                            {item.name}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                                {/* SUBMENU */}
+                                {classesOpen && (
+                                    <div className="bg-white mx-2 mt-[-10px] pt-4 pb-2 rounded-b-xl shadow-inner border-t border-gray-100 flex flex-col overflow-hidden">
+                                        {classes.map((item) => (
+                                            <button
+                                                key={item.name}
+                                                onClick={() => handleClassClick(item.value)}
+                                                className={`px-8 py-2 text-sm font-semibold text-left transition-colors uppercase ${
+                                                    selectedClass === item.value 
+                                                        ? 'bg-green-100 text-[#4ade80]' 
+                                                        : 'text-gray-600 hover:bg-green-50 hover:text-[#4ade80]'
+                                                }`}
+                                            >
+                                                {item.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {/* OUTROS BOTÕES SEM CÍRCULO */}
                         {menuItems.map((item) => (
@@ -297,8 +487,8 @@ export default function Dashboard() {
                         </h1>
                         
                         {selectedClass ? (
-                            <div className="flex items-center justify-between gap-8">
-                                <div className="flex items-center gap-8">
+                            <div className="flex items-center justify-between gap-8 overflow-x-auto overflow-y-visible md:overflow-visible">
+                                <div className="flex items-center gap-8 whitespace-nowrap">
                                     <p className="text-gray-600">
                                         Classe: <span className="font-semibold text-[#4ade80] uppercase">
                                             {classes.find(c => c.value === selectedClass)?.name}
@@ -311,12 +501,22 @@ export default function Dashboard() {
                                             </span>
                                         </p>
                                     )}
+                                    <div className="flex items-center gap-4">
+                                        <label className="text-gray-600 font-semibold">Data:</label>
+                                        <DatePicker value={selectedDate} onChange={(val) => setSelectedDate(val)} placeholder="dd/mm/aaaa" />
+                                        <button
+                                            onClick={() => loadAttendance(selectedClass, selectedDate)}
+                                            className="bg-[#4ade80] text-white px-4 py-2 rounded-full font-semibold hover:bg-green-500 transition-colors ml-2"
+                                        >
+                                            Editar registro
+                                        </button>
+                                    </div>
                                 </div>
                                 
                                 {canRegisterStudents && (
                                     <Link
                                         href="/register"
-                                        className="bg-[#4ade80] text-white px-6 py-2 rounded-lg 
+                                        className="flex-shrink-0 bg-[#4ade80] text-white px-6 py-2 rounded-lg 
                                         font-semibold hover:bg-green-500 transition-colors flex items-center gap-2"
                                     >
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -396,6 +596,7 @@ export default function Dashboard() {
                                                                 name={`attendance-professor`}
                                                                 value="presente"
                                                                 onChange={() => handleAttendanceChange(`professor-${professor.id}`, 'presente')}
+                                                                checked={attendanceData[`professor-${professor.id}`]?.status === 'presente'}
                                                                 className="w-5 h-5 text-green-500 focus:ring-green-500 cursor-pointer"
                                                             />
                                                         </td>
@@ -405,6 +606,7 @@ export default function Dashboard() {
                                                                 name={`attendance-professor`}
                                                                 value="ausente"
                                                                 onChange={() => handleAttendanceChange(`professor-${professor.id}`, 'ausente')}
+                                                                checked={attendanceData[`professor-${professor.id}`]?.status === 'ausente'}
                                                                 className="w-5 h-5 text-red-500 focus:ring-red-500 cursor-pointer"
                                                             />
                                                         </td>
@@ -493,6 +695,7 @@ export default function Dashboard() {
                                                                 name={`attendance-${student.id}`}
                                                                 value="presente"
                                                                 onChange={() => handleAttendanceChange(student.id, 'presente')}
+                                                                checked={attendanceData[student.id]?.status === 'presente'}
                                                                 className="w-5 h-5 text-green-500 focus:ring-green-500 cursor-pointer"
                                                             />
                                                         </td>
@@ -502,6 +705,7 @@ export default function Dashboard() {
                                                                 name={`attendance-${student.id}`}
                                                                 value="ausente"
                                                                 onChange={() => handleAttendanceChange(student.id, 'ausente')}
+                                                                checked={attendanceData[student.id]?.status === 'ausente'}
                                                                 className="w-5 h-5 text-red-500 focus:ring-red-500 cursor-pointer"
                                                             />
                                                         </td>
@@ -577,7 +781,7 @@ export default function Dashboard() {
                                         {canRegisterStudents && (
                                             <button 
                                                 onClick={handleSaveAttendance}
-                                                className="bg-[#4ade80] text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-500 transition-colors"
+                                                className="w-full md:w-auto bg-[#4ade80] text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-500 transition-colors"
                                             >
                                                 Salvar Frequência
                                             </button>
@@ -599,7 +803,7 @@ export default function Dashboard() {
                                                     placeholder="0,00"
                                                     value={offeringValue}
                                                     onChange={(e) => setOfferingValue(e.target.value)}
-                                                    className="w-32 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4ade80] focus:border-transparent"
+                                                    className="w-full md:w-32 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4ade80] focus:border-transparent"
                                                 />
                                                 <span className="text-gray-600 text-sm">Valor em reais</span>
                                             </div>
@@ -615,7 +819,7 @@ export default function Dashboard() {
                                                     placeholder="0"
                                                     value={visitorsValue}
                                                     onChange={(e) => setVisitorsValue(e.target.value)}
-                                                    className="w-32 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4ade80] focus:border-transparent"
+                                                    className="w-full md:w-32 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4ade80] focus:border-transparent"
                                                 />
                                                 <span className="text-gray-600 text-sm">Quantidade</span>
                                             </div>
