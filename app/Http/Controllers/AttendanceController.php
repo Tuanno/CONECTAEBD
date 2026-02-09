@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Attendance;
+use App\Models\ClassGroup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -28,7 +29,19 @@ class AttendanceController extends Controller
         try {
             DB::beginTransaction();
 
-            // Salvar ou atualizar cada frequência (sem oferta e visitantes)
+            // Encontrar ou criar a turma
+            $classGroup = ClassGroup::firstOrCreate(
+                ['name' => $validated['class_group']],
+                ['description' => null]
+            );
+
+            // Atualizar oferta/visitantes na turma (armazenamento centralizado)
+            $classGroup->update([
+                'offering' => $validated['offering'] ?? null,
+                'visitors' => $validated['visitors'] ?? 0,
+            ]);
+
+            // Salvar ou atualizar cada frequência (associando à turma)
             foreach ($validated['attendances'] as $attendance_data) {
                 Attendance::updateOrCreate(
                     [
@@ -36,21 +49,13 @@ class AttendanceController extends Controller
                         'attendance_date' => $validated['attendance_date'],
                     ],
                     [
-                        'class_group' => $validated['class_group'],
+                        'class_group_id' => $classGroup->id,
                         'status' => $attendance_data['status'],
                         'bible' => $attendance_data['bible'] ?? false,
                         'magazine' => $attendance_data['magazine'] ?? false,
                     ]
                 );
             }
-
-            // Salvar oferta e visitantes apenas uma vez por turma/data
-            Attendance::where('attendance_date', $validated['attendance_date'])
-                ->where('class_group', $validated['class_group'])
-                ->update([
-                    'offering' => $validated['offering'] ?? null,
-                    'visitors' => $validated['visitors'] ?? 0,
-                ]);
 
             DB::commit();
 
@@ -65,6 +70,51 @@ class AttendanceController extends Controller
                 'success' => false,
                 'message' => 'Erro ao salvar frequência: ' . $e->getMessage(),
             ], 500);
+        }
+    }
+
+    /**
+     * Buscar frequência por turma e data (para edição/carregamento)
+     */
+    public function getByDateAndClass($classGroup, $date)
+    {
+        try {
+            $cg = ClassGroup::where('name', $classGroup)->first();
+            if (!$cg) {
+                return response()->json(['success' => true, 'attendances' => [], 'class_group' => null]);
+            }
+
+            $attendances = Attendance::where('class_group_id', $cg->id)
+                ->whereDate('attendance_date', $date)
+                ->with('user')
+                ->get()
+                ->map(function ($att) {
+                    return [
+                        'id' => $att->id,
+                        'user_id' => $att->user_id,
+                        'status' => $att->status,
+                        'bible' => (bool) $att->bible,
+                        'magazine' => (bool) $att->magazine,
+                        'user' => $att->user ? [
+                            'id' => $att->user->id,
+                            'name' => $att->user->name,
+                            'user_role' => $att->user->user_role,
+                        ] : null,
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'attendances' => $attendances,
+                'class_group' => [
+                    'id' => $cg->id,
+                    'name' => $cg->name,
+                    'offering' => (float) ($cg->offering ?? 0),
+                    'visitors' => (int) ($cg->visitors ?? 0),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 
@@ -166,14 +216,17 @@ class AttendanceController extends Controller
             $query = Attendance::whereBetween('attendance_date', [$startDate, $endDate]);
 
             if ($classGroup) {
-                $query->where('class_group', $classGroup);
+                $query->whereHas('classGroup', function ($q) use ($classGroup) {
+                    $q->where('name', $classGroup);
+                });
             }
 
-            $attendances = $query->get();
+            $attendances = $query->with('classGroup')->get();
 
             // Agrupar por data e classe para não duplicar oferta/visitantes
             $groupedAll = $attendances->groupBy(function ($att) {
-                return $att->attendance_date->format('Y-m-d') . '|' . $att->class_group;
+                $className = $att->classGroup?->name ?? '';
+                return $att->attendance_date->format('Y-m-d') . '|' . $className;
             });
 
             $totals = [
@@ -182,10 +235,10 @@ class AttendanceController extends Controller
                 'with_bible' => $attendances->where('bible', true)->count(),
                 'with_magazine' => $attendances->where('magazine', true)->count(),
                 'total_offering' => $groupedAll->sum(function ($group) {
-                    return (float) ($group->first()->offering ?? 0);
+                    return (float) ($group->first()->classGroup?->offering ?? 0);
                 }),
                 'total_visitors' => $groupedAll->sum(function ($group) {
-                    return (int) ($group->first()->visitors ?? 0);
+                    return (int) ($group->first()->classGroup?->visitors ?? 0);
                 }),
             ];
 
@@ -217,7 +270,8 @@ class AttendanceController extends Controller
                 });
 
                 $periodGrouped = $periodAttendances->groupBy(function ($att) {
-                    return $att->attendance_date->format('Y-m-d') . '|' . $att->class_group;
+                    $className = $att->classGroup?->name ?? '';
+                    return $att->attendance_date->format('Y-m-d') . '|' . $className;
                 });
 
                 $periodData[] = [
@@ -227,22 +281,22 @@ class AttendanceController extends Controller
                     'with_bible' => $periodAttendances->where('bible', true)->count(),
                     'with_magazine' => $periodAttendances->where('magazine', true)->count(),
                     'total_offering' => $periodGrouped->sum(function ($group) {
-                        return (float) ($group->first()->offering ?? 0);
+                        return (float) ($group->first()->classGroup?->offering ?? 0);
                     }),
                     'total_visitors' => $periodGrouped->sum(function ($group) {
-                        return (int) ($group->first()->visitors ?? 0);
+                        return (int) ($group->first()->classGroup?->visitors ?? 0);
                     }),
                     'details' => $periodGrouped->map(function ($group) {
                         $first = $group->first();
                         return [
                             'date' => $first->attendance_date->format('Y-m-d'),
-                            'class_group' => $first->class_group,
+                            'class_group' => $first->classGroup?->name,
                             'presents' => $group->where('status', 'presente')->count(),
                             'absents' => $group->where('status', 'ausente')->count(),
                             'with_bible' => $group->where('bible', true)->count(),
                             'with_magazine' => $group->where('magazine', true)->count(),
-                            'offering' => (float) ($first->offering ?? 0),
-                            'visitors' => (int) ($first->visitors ?? 0),
+                            'offering' => (float) ($first->classGroup?->offering ?? 0),
+                            'visitors' => (int) ($first->classGroup?->visitors ?? 0),
                         ];
                     })->values(),
                 ];

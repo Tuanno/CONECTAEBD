@@ -14,27 +14,20 @@ return new class extends Migration
         Schema::create('attendances', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->string('class_group'); // adulto, juvenil, infantil, pre-adolescente
+            $table->foreignId('class_group_id')->constrained('class_groups')->onDelete('cascade');
             $table->date('attendance_date');
-            
+
             // Presença
             $table->enum('status', ['presente', 'ausente']);
-            
+
             // Materiais (quando presente)
             $table->boolean('bible')->default(false);        // Bíblia
             $table->boolean('magazine')->default(false);     // Revista
-            
-            // Oferta
-            $table->decimal('offering', 8, 2)->nullable();   // Valor em reais
-            
-            // Visitantes
-            $table->integer('visitors')->default(0);         // Quantidade de visitantes
-            
             $table->timestamps();
             
             // Impedir duplicatas: um aluno só tem um registro por data
             $table->unique(['user_id', 'attendance_date']);
-            $table->index(['class_group', 'attendance_date']);
+            $table->index(['class_group_id', 'attendance_date']);
             $table->index('attendance_date');
         });
     }

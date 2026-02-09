@@ -11,21 +11,18 @@ class Attendance extends Model
 
     protected $fillable = [
         'user_id',
-        'class_group',
+        'class_group_id',
         'attendance_date',
         'status',
         'bible',
         'magazine',
-        'offering',
-        'visitors',
     ];
 
     protected $casts = [
         'attendance_date' => 'date',
         'bible' => 'boolean',
         'magazine' => 'boolean',
-        'offering' => 'decimal:2',
-        'visitors' => 'integer',
+        'class_group_id' => 'integer',
     ];
 
     /**
@@ -34,6 +31,11 @@ class Attendance extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function classGroup()
+    {
+        return $this->belongsTo(ClassGroup::class);
     }
 
     /**
@@ -49,6 +51,11 @@ class Attendance extends Model
      */
     public function scopeByClass($query, $classGroup)
     {
-        return $query->where('class_group', $classGroup);
+        if (is_numeric($classGroup)) {
+            return $query->where('class_group_id', $classGroup);
+        }
+        return $query->whereHas('classGroup', function ($q) use ($classGroup) {
+            $q->where('name', $classGroup);
+        });
     }
 }
