@@ -26,8 +26,14 @@ export default function Dashboard() {
         const dd = String(d.getDate()).padStart(2, '0');
         return `${yyyy}-${mm}-${dd}`;
     })();
-    const [selectedDate, setSelectedDate] = useState(localToday);
+    // `displayDate` mostra a data no UI (inicialmente hoje). `selectedDate`
+    // representa a data explicitamente escolhida pelo usuário — somente
+    // quando `selectedDate` estiver preenchida o botão "Editar registro"
+    // ficará visível.
+    const [displayDate, setDisplayDate] = useState(localToday);
+    const [selectedDate, setSelectedDate] = useState('');
     const [classToReload, setClassToReload] = useState('');
+    const [attendanceLoading, setAttendanceLoading] = useState(false);
     
     // Estado para rastrear presença e materiais de cada aluno
     const [attendanceData, setAttendanceData] = useState({});
@@ -47,15 +53,6 @@ export default function Dashboard() {
         { name: 'INFANTIL', value: 'infantil' },
     ];
 
-    // Garantir que, ao montar, exista uma data selecionada (hoje) caso esteja vazia
-    useEffect(() => {
-        if (!selectedDate) {
-            const today = new Date().toISOString().split('T')[0];
-            setSelectedDate(today);
-        }
-    }, []); // executa só na montagem
-
-    // Simple Tailwind-styled DatePicker component (inline, no external deps)
     function DatePicker({ value, onChange, placeholder = '' }) {
         const [open, setOpen] = useState(false);
         const parseLocalFromISO = (s) => {
@@ -230,11 +227,12 @@ export default function Dashboard() {
         }
     }, [selectedClass]);
 
-    // Observação: carregamento agora só ocorre quando o usuário clica em "Editar registro"
+    // Observação: carregamento agora ocorre ao selecionar uma data no calendário
 
     // Função para carregar presença de uma data/classe
     const loadAttendance = async (classValue, dateValue, fetchedStudents = null, fetchedProfessor = null) => {
         if (!classValue || !dateValue) return;
+        setAttendanceLoading(true);
         try {
             const resp = await axios.get(`/api/attendances/${classValue}/${dateValue}`);
             if (!resp.data.success) {
@@ -273,6 +271,8 @@ export default function Dashboard() {
         } catch (error) {
             console.error('Erro ao carregar presença:', error);
             showAlert({ message: 'Erro ao carregar presença: ' + (error.response?.data?.message || error.message) });
+        } finally {
+            setAttendanceLoading(false);
         }
     };
 
@@ -503,13 +503,23 @@ export default function Dashboard() {
                                     )}
                                     <div className="flex items-center gap-4">
                                         <label className="text-gray-600 font-semibold">Data:</label>
-                                        <DatePicker value={selectedDate} onChange={(val) => setSelectedDate(val)} placeholder="dd/mm/aaaa" />
-                                        <button
-                                            onClick={() => loadAttendance(selectedClass, selectedDate)}
-                                            className="bg-[#4ade80] text-white px-4 py-2 rounded-full font-semibold hover:bg-green-500 transition-colors ml-2"
-                                        >
-                                            Editar registro
-                                        </button>
+                                        <DatePicker
+                                            value={displayDate}
+                                            onChange={(val) => {
+                                                setDisplayDate(val);
+                                                setSelectedDate(val);
+                                                if (selectedClass) {
+                                                    loadAttendance(selectedClass, val);
+                                                }
+                                            }}
+                                            placeholder="dd/mm/aaaa"
+                                        />
+                                        {attendanceLoading && (
+                                            <div className="ml-3 flex items-center gap-2">
+                                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                                                <span className="text-sm text-gray-600">Carregando...</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 
@@ -551,9 +561,10 @@ export default function Dashboard() {
                     {/* LISTA DE ALUNOS */}
                     {selectedClass && (
                         <div className="bg-white rounded-xl shadow-lg p-6">
-                            {loading ? (
+                            {loading || attendanceLoading ? (
                                 <div className="flex justify-center items-center py-12">
                                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4ade80]"></div>
+                                    <span className="ml-3 text-gray-600">Carregando dados...</span>
                                 </div>
                             ) : students.length > 0 ? (
                                 <div className="overflow-x-auto">
