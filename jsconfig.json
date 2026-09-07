@@ -1,6 +1,8 @@
 {
+    "$schema": "https://json.schemastore.org/jsconfig.json",
     "compilerOptions": {
         "baseUrl": ".",
+        "ignoreDeprecations": "6.0",
         "paths": {
             "@/*": ["resources/js/*"],
             "ziggy-js": ["./vendor/tightenco/ziggy"]

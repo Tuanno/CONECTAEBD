@@ -34,6 +34,7 @@ export default function Dashboard() {
     const [selectedDate, setSelectedDate] = useState('');
     const [classToReload, setClassToReload] = useState('');
     const [attendanceLoading, setAttendanceLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
     
     // Estado para rastrear presença e materiais de cada aluno
     const [attendanceData, setAttendanceData] = useState({});
@@ -376,6 +377,7 @@ export default function Dashboard() {
         });
 
         try {
+            setSaving(true);
             const response = await axios.post('/api/attendances', {
                 class_group: selectedClass,
                 attendance_date: dateToSend,
@@ -395,6 +397,9 @@ export default function Dashboard() {
         } catch (error) {
             console.error('Erro ao salvar:', error);
             showAlert({ headline: 'Erro', message: 'Erro ao salvar frequência: ' + (error.response?.data?.message || error.message), title: 'ERRO', variant: 'error' });
+        }
+        finally {
+            setSaving(false);
         }
     };
 
@@ -792,9 +797,21 @@ export default function Dashboard() {
                                         {canRegisterStudents && (
                                             <button 
                                                 onClick={handleSaveAttendance}
-                                                className="w-full md:w-auto bg-[#4ade80] text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-500 transition-colors"
+                                                disabled={saving}
+                                                aria-busy={saving}
+                                                className={`w-full md:w-auto px-6 py-2 rounded-lg font-semibold transition-colors ${saving ? 'bg-green-300 text-white cursor-not-allowed' : 'bg-[#4ade80] text-white hover:bg-green-500'}`}
                                             >
-                                                Salvar Frequência
+                                                {saving ? (
+                                                    <span className="inline-flex items-center gap-2">
+                                                        <svg className="w-5 h-5 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                                                        </svg>
+                                                        Salvando...
+                                                    </span>
+                                                ) : (
+                                                    'Salvar Frequência'
+                                                )}
                                             </button>
                                         )}
                                     </div>

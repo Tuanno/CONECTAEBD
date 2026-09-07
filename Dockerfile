@@ -32,6 +32,6 @@ RUN composer install
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
 # Porta do servidor
-EXPOSE 9000
+EXPOSE 8080
 
-CMD ["php-fpm"]
+CMD php artisan serve --host=0.0.0.0 --port=${PORT:-8080}
