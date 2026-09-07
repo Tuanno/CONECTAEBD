@@ -1,0 +1,53 @@
+# Template de virtual host. O provision.sh substitui __DOMAIN__ e __APP_DIR__
+# e instala em /etc/nginx/sites-available/conectaebd.
+#
+# O certbot reescreve este arquivo ao emitir o certificado, adicionando o
+# bloco 443 e o redirect de 80 para 443.
+
+server {
+    listen 80;
+    listen [::]:80;
+
+    server_name __DOMAIN__ www.__DOMAIN__;
+    root __APP_DIR__/public;
+
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+
+    index index.php;
+    charset utf-8;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    location = /robots.txt  { access_log off; log_not_found off; }
+
+    # Assets versionados pelo Vite: nome tem hash, entao cache longo e seguro.
+    location /build/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    error_page 404 /index.php;
+
+    location ~ \.php$ {
+        fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+        fastcgi_hide_header X-Powered-By;
+    }
+
+    # Bloqueia dotfiles, exceto o desafio do Let's Encrypt.
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+
+    client_max_body_size 20M;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1000;
+}

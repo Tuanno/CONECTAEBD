@@ -8,10 +8,19 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Migracao de dados historicos: move turma/oferta/visitantes de attendances
+     * para class_groups.
+     *
+     * So faz sentido em bancos criados antes de 2026_02_09, que ainda tem as
+     * colunas legadas. Num banco novo o create_attendances_table ja nasce no
+     * formato final, entao esta migration nao tem nada a fazer.
      */
     public function up(): void
     {
+        if (! Schema::hasColumn('attendances', 'class_group')) {
+            return;
+        }
+
         // 1) adicionar coluna class_group_id se necessário
         Schema::table('attendances', function (Blueprint $table) {
             if (!Schema::hasColumn('attendances', 'class_group_id')) {
@@ -31,7 +40,6 @@ return new class extends Migration
             if (!$cg) {
                 $id = DB::table('class_groups')->insertGetId([
                     'name' => $groupName,
-                    'description' => null,
                     'offering' => null,
                     'visitors' => 0,
                     'created_at' => now(),
@@ -63,25 +71,14 @@ return new class extends Migration
                 ->update(['class_group_id' => $cg->id]);
         }
 
-        // 3) definir class_group_id como not nullable e criar FK
+        // 3) definir class_group_id como not nullable (a FK e criada em 2026_02_10)
         Schema::table('attendances', function (Blueprint $table) {
-            if (Schema::hasColumn('attendances', 'class_group_id')) {
-                $table->unsignedBigInteger('class_group_id')->nullable(false)->change();
-                $table->foreign('class_group_id')->references('id')->on('class_groups')->onDelete('cascade');
-            }
+            $table->unsignedBigInteger('class_group_id')->nullable(false)->change();
         });
 
-        // 4) remover colunas antigas se existirem
+        // 4) remover colunas antigas
         Schema::table('attendances', function (Blueprint $table) {
-            if (Schema::hasColumn('attendances', 'class_group')) {
-                $table->dropColumn('class_group');
-            }
-            if (Schema::hasColumn('attendances', 'offering')) {
-                $table->dropColumn('offering');
-            }
-            if (Schema::hasColumn('attendances', 'visitors')) {
-                $table->dropColumn('visitors');
-            }
+            $table->dropColumn(['class_group', 'offering', 'visitors']);
         });
     }
 
@@ -100,13 +97,6 @@ return new class extends Migration
             }
             if (!Schema::hasColumn('attendances', 'visitors')) {
                 $table->integer('visitors')->default(0)->after('offering');
-            }
-        });
-
-        Schema::table('attendances', function (Blueprint $table) {
-            if (Schema::hasColumn('attendances', 'class_group_id')) {
-                $table->dropForeign(['class_group_id']);
-                $table->dropColumn('class_group_id');
             }
         });
     }

@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create('attendances', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('class_group_id')->constrained('class_groups')->onDelete('cascade');
+            // FK criada em 2026_02_10 — class_groups so existe a partir de 2026_01_08.
+            $table->unsignedBigInteger('class_group_id');
             $table->date('attendance_date');
 
             // Presença
