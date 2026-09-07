@@ -61,7 +61,7 @@ ssh-keygen -t ed25519 -C "conectaebd"
 ```
 
 Aceite o caminho padrao. Faca upload do arquivo **`.pub`**
-(`C:\Users\caioc\.ssh\id_ed25519.pub`) — nunca o outro.
+(`%USERPROFILE%\.ssh\id_ed25519.pub`) — nunca o outro.
 
 ### Se aparecer "Out of host capacity"
 
@@ -128,11 +128,11 @@ ssh ubuntu@<IP-DA-VM>
 Ja dentro da VM:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/arbcaio/CONECTAEBD/main/deploy/provision.sh -o provision.sh
+curl -fsSL https://raw.githubusercontent.com/Tuanno/CONECTAEBD/main/deploy/provision.sh -o provision.sh
 ```
 
 ```bash
-sudo DOMAIN=conectaebd.com.br CERTBOT_EMAIL=lorenzo.daniel.ricos@gmail.com bash provision.sh
+sudo DOMAIN=conectaebd.com.br CERTBOT_EMAIL=seu-email@exemplo.com bash provision.sh
 ```
 
 Troque o dominio pelo seu. O script instala tudo, cria o banco com senha

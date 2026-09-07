@@ -13,7 +13,7 @@
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/var/www/conectaebd}"
-REPO_URL="${REPO_URL:-https://github.com/arbcaio/CONECTAEBD.git}"
+REPO_URL="${REPO_URL:-https://github.com/Tuanno/CONECTAEBD.git}"
 BRANCH="${BRANCH:-main}"
 DEPLOY_USER="${DEPLOY_USER:-ubuntu}"
 DOMAIN="${DOMAIN:-}"
