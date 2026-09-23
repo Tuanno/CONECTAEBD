@@ -13,7 +13,9 @@ export default function Dashboard() {
     
     const [classesOpen, setClassesOpen] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [selectedClass, setSelectedClass] = useState('');
+    const [selectedClass, setSelectedClass] = useState(
+        user?.user_role === 'professor' ? (user.class_group || '') : ''
+    );
     const [students, setStudents] = useState([]);
     const [professor, setProfessor] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -822,7 +824,7 @@ export default function Dashboard() {
                                             {/* Oferta */}
                                             <div className="flex items-center gap-4">
                                                 <label className="font-semibold text-gray-700 uppercase text-sm whitespace-nowrap">
-                                                    Oferta:
+                                                    Valor da oferta:
                                                 </label>
                                                 <input 
                                                     type="number" 
@@ -833,13 +835,12 @@ export default function Dashboard() {
                                                     onChange={(e) => setOfferingValue(e.target.value)}
                                                     className="w-full md:w-32 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4ade80] focus:border-transparent"
                                                 />
-                                                <span className="text-gray-600 text-sm">Valor em reais</span>
                                             </div>
 
                                             {/* Visitantes */}
                                             <div className="flex items-center gap-4">
                                                 <label className="font-semibold text-gray-700 uppercase text-sm whitespace-nowrap">
-                                                    Visitantes:
+                                                    Quantidade de visitantes:
                                                 </label>
                                                 <input 
                                                     type="number" 
@@ -849,7 +850,6 @@ export default function Dashboard() {
                                                     onChange={(e) => setVisitorsValue(e.target.value)}
                                                     className="w-full md:w-32 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4ade80] focus:border-transparent"
                                                 />
-                                                <span className="text-gray-600 text-sm">Quantidade</span>
                                             </div>
                                         </div>
                                     </div>

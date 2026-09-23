@@ -6,6 +6,7 @@ import { UserPlus } from 'lucide-react';
 export default function Register() {
     const { props } = usePage();
     const user = props.auth?.user;
+    const isProfessor = user?.user_role === 'professor';
     
     const { data, setData, post, processing, errors } = useForm({
         name: '',
@@ -13,8 +14,8 @@ export default function Register() {
         password: '',
         password_confirmation: '',
         birth_date: '',
-        user_role: '',
-        class_group: '',
+        user_role: isProfessor ? 'aluno' : '',
+        class_group: isProfessor ? (user.class_group || '') : '',
     });
 
     const handleSubmit = (e) => {
@@ -28,7 +29,7 @@ export default function Register() {
             <div className="w-full max-w-2xl mx-auto px-4">
                 <div className="bg-white shadow-xl rounded-2xl p-6 border border-gray-100">
                     {user && (
-                        <Link href="/dashboard" className="text-indigo-600 hover:text-indigo-700 mb-4 inline-block font-medium">
+                        <Link href="/dashboard" className="text-blue-500 hover:text-indigo-700 mb-4 inline-block font-medium">
                             ← Voltar
                         </Link>
                     )}
@@ -49,6 +50,8 @@ export default function Register() {
                             errors={errors}
                             isLoading={processing}
                             isEditing={false}
+                            restrictToClass={isProfessor ? user.class_group : ''}
+                            restrictToStudent={isProfessor}
                         />
 
                         <div className="flex items-center justify-between pt-2 text-sm">

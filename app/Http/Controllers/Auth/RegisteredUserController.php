@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -52,7 +53,16 @@ class RegisteredUserController extends Controller
             }
         }
         
-        $request->validate([
+        $currentUser = Auth::user();
+        $isProfessor = $currentUser?->user_role === 'professor';
+
+        if ($isProfessor && !$currentUser->class_group) {
+            throw ValidationException::withMessages([
+                'class_group' => 'Seu usuário não possui uma turma associada.',
+            ]);
+        }
+
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
@@ -61,13 +71,18 @@ class RegisteredUserController extends Controller
             'class_group' => ['required', 'in:adulto,juvenil,infantil,pre-adolescente'],
         ]);
 
+        if ($isProfessor) {
+            $validated['user_role'] = 'aluno';
+            $validated['class_group'] = $currentUser->class_group;
+        }
+
         $newUser = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'birth_date' => $request->birth_date,
-            'user_role' => $request->user_role,
-            'class_group' => $request->class_group,
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+            'birth_date' => $validated['birth_date'],
+            'user_role' => $validated['user_role'],
+            'class_group' => $validated['class_group'],
         ]);
 
         event(new Registered($newUser));
