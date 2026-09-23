@@ -113,7 +113,7 @@ export default function AttendanceReport() {
                             href="/dashboard"
                             className="mt-4 inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors"
                         >
-                            ← Voltar para o Dashboard
+                            ← Voltar ao Dashboard
                         </Link>
                     </div>
                 </div>
@@ -136,9 +136,9 @@ export default function AttendanceReport() {
                             </div>
                             <Link
                                 href="/dashboard"
-                                className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors print:hidden"
+                                className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-[#4ade80] border border-green-300 rounded-md hover:bg-green-500 transition-colors print:hidden"
                             >
-                                ← Voltar para o Dashboard
+                                ← Voltar
                             </Link>
                         </div>
                     </div>
@@ -194,7 +194,7 @@ export default function AttendanceReport() {
                                 <button
                                     onClick={generateReport}
                                     disabled={loading}
-                                    className="w-full px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+                                    className="w-full px-6 py-2 bg-[#4ade80] text-white font-medium rounded-md hover:bg-green-500 disabled:bg-gray-400 transition-colors"
                                 >
                                     {loading ? 'Gerando...' : 'Gerar Relatório'}
                                 </button>

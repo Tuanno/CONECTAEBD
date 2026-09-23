@@ -173,9 +173,9 @@ export default function AttendanceHistory() {
                     </h2>
                     <a
                         href="/dashboard"
-                        className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                        className="px-4 py-2 text-sm bg-[#4ade80] text-white rounded-lg hover:bg-green-500 transition-colors"
                     >
-                        ← Voltar para o Dashboard
+                        ← Voltar
                     </a>
                 </div>
             }
@@ -316,7 +316,7 @@ export default function AttendanceHistory() {
                             <button
                                 onClick={handleSearch}
                                 disabled={loading}
-                                className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                className="flex items-center gap-2 px-6 py-2 bg-[#4ade80] text-white font-semibold rounded-lg hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
                                 <Search className="w-4 h-4" />
                                 {loading ? 'Buscando...' : 'Buscar'}

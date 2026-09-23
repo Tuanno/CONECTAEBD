@@ -11,7 +11,9 @@ export default function UserForm({
     isLoading = false, 
     isEditing = false,
     showButtons = false,
-    onSubmit = () => {}
+    onSubmit = () => {},
+    restrictToClass = '',
+    restrictToStudent = false
 }) {
     const [showPassword, setShowPassword] = useState(false);
     const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
@@ -92,12 +94,13 @@ export default function UserForm({
                     id="user_role"
                     name="user_role"
                     value={data.user_role || ''}
+                    disabled={restrictToStudent}
                     className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                     onChange={handleChange}
                     required
                 >
                     <option value="">Selecione...</option>
-                    {roles.map(role => (
+                    {(restrictToStudent ? roles.filter(role => role.value === 'aluno') : roles).map(role => (
                         <option key={role.value} value={role.value}>
                             {role.name}
                         </option>
@@ -113,11 +116,12 @@ export default function UserForm({
                     id="class_group"
                     name="class_group"
                     value={data.class_group || ''}
+                    disabled={Boolean(restrictToClass)}
                     className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                     onChange={handleChange}
                 >
                     <option value="">Selecione...</option>
-                    {classes.map(cls => (
+                    {(restrictToClass ? classes.filter(cls => cls.value === restrictToClass) : classes).map(cls => (
                         <option key={cls.value} value={cls.value}>
                             {cls.name}
                         </option>
