@@ -12,6 +12,8 @@ class Attendance extends Model
     protected $fillable = [
         'user_id',
         'class_group_id',
+        'lesson_id',
+        'group_user_id',
         'attendance_date',
         'status',
         'bible',
@@ -23,6 +25,8 @@ class Attendance extends Model
         'bible' => 'boolean',
         'magazine' => 'boolean',
         'class_group_id' => 'integer',
+        'lesson_id' => 'integer',
+        'group_user_id' => 'integer',
     ];
 
     /**
@@ -36,6 +40,16 @@ class Attendance extends Model
     public function classGroup()
     {
         return $this->belongsTo(ClassGroup::class);
+    }
+
+    public function lesson()
+    {
+        return $this->belongsTo(Lesson::class);
+    }
+
+    public function groupUser()
+    {
+        return $this->belongsTo(GroupUser::class);
     }
 
     /**

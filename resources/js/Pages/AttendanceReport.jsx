@@ -13,7 +13,9 @@ export default function AttendanceReport() {
 
     const [periodType, setPeriodType] = useState('trimestral');
     const [year, setYear] = useState(new Date().getFullYear());
-    const [classGroup, setClassGroup] = useState('todas');
+    const [classGroup, setClassGroup] = useState(
+        user?.user_role === 'professor' ? (user.class_group || '') : 'todas'
+    );
     const [reportData, setReportData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -26,6 +28,9 @@ export default function AttendanceReport() {
         { name: 'PRÉ-ADOLESCENTE', value: 'pre-adolescente' },
         { name: 'INFANTIL', value: 'infantil' },
     ];
+    const visibleClasses = user?.user_role === 'professor'
+        ? classes.filter((item) => item.value === user.class_group)
+        : classes;
 
     const currentYear = new Date().getFullYear();
     const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
@@ -184,7 +189,7 @@ export default function AttendanceReport() {
                                     onChange={(e) => setClassGroup(e.target.value)}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                 >
-                                    {classes.map(cls => (
+                                    {visibleClasses.map(cls => (
                                         <option key={cls.value} value={cls.value}>{cls.name}</option>
                                     ))}
                                 </select>

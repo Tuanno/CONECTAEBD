@@ -32,6 +32,9 @@ export default function UserForm({
 
     const handleChange = (e) => {
         const { name, value } = e.target;
+        if (name === 'user_role' && value === 'secretaria') {
+            setData('class_group', '');
+        }
         setData(name, value);
     };
 
@@ -111,12 +114,13 @@ export default function UserForm({
 
             {/* Classe */}
             <div className="mt-4">
-                <InputLabel htmlFor="class_group" value="Classe" />
+                <InputLabel htmlFor="class_group" value={data.user_role === 'secretaria' ? 'Classe (opcional)' : 'Classe *'} />
                 <select
                     id="class_group"
                     name="class_group"
                     value={data.class_group || ''}
                     disabled={Boolean(restrictToClass)}
+                    required={data.user_role !== 'secretaria'}
                     className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                     onChange={handleChange}
                 >

@@ -59,4 +59,9 @@ class User extends Authenticatable
     {
         $this->notify(new \App\Notifications\ResetPasswordNotification($token));
     }
+
+    public function annualGroups()
+    {
+        return $this->belongsToMany(AnnualGroup::class, 'group_user', 'user_id', 'group_id')->withPivot(['id', 'enrollment_status', 'enrolled_at', 'locked_at', 'reactivated_at'])->withTimestamps();
+    }
 }

@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Attendance;
 use App\Models\ClassGroup;
+use App\Models\AnnualGroup;
+use App\Models\Lesson;
+use App\Models\GroupUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -16,6 +19,7 @@ class AttendanceController extends Controller
     {
         $validated = $request->validate([
             'class_group' => 'required|string|in:adulto,juvenil,infantil,pre-adolescente',
+            'notebook_id' => 'nullable|integer|exists:notebooks,id',
             'attendance_date' => 'required|date',
             'offering' => 'nullable|numeric|min:0',
             'visitors' => 'nullable|integer|min:0',
@@ -25,6 +29,7 @@ class AttendanceController extends Controller
             'attendances.*.bible' => 'boolean',
             'attendances.*.magazine' => 'boolean',
         ]);
+        $this->authorizeClass($validated['class_group']);
 
         try {
             DB::beginTransaction();
@@ -41,18 +46,43 @@ class AttendanceController extends Controller
                 'visitors' => $validated['visitors'] ?? 0,
             ]);
 
+            $annualGroupQuery = AnnualGroup::where('class_group_id', $classGroup->id);
+            if (!empty($validated['notebook_id'])) {
+                $annualGroupQuery->where('notebook_id', $validated['notebook_id']);
+            } else {
+                $annualGroupQuery->whereHas('notebook', fn ($query) => $query->where('status', 'aberta'));
+            }
+            $annualGroup = $annualGroupQuery->latest('id')->first();
+            $lesson = $annualGroup ? Lesson::updateOrCreate(
+                ['group_id' => $annualGroup->id, 'lesson_date' => $validated['attendance_date']],
+                ['offering' => $validated['offering'] ?? null, 'visitors' => $validated['visitors'] ?? 0]
+            ) : null;
+
             // Salvar ou atualizar cada frequência (associando à turma)
             foreach ($validated['attendances'] as $attendance_data) {
+                $membership = $annualGroup
+                    ? GroupUser::where('group_id', $annualGroup->id)->where('user_id', $attendance_data['user_id'])->first()
+                    : null;
+
+                if ($membership && $membership->enrollment_status === 'trancada') {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'attendances' => 'A matrícula de um dos alunos está trancada.',
+                    ]);
+                }
+
+                $attendanceKey = $lesson
+                    ? ['lesson_id' => $lesson->id, 'user_id' => $attendance_data['user_id']]
+                    : ['user_id' => $attendance_data['user_id'], 'attendance_date' => $validated['attendance_date']];
+
                 Attendance::updateOrCreate(
-                    [
-                        'user_id' => $attendance_data['user_id'],
-                        'attendance_date' => $validated['attendance_date'],
-                    ],
+                    $attendanceKey,
                     [
                         'class_group_id' => $classGroup->id,
                         'status' => $attendance_data['status'],
                         'bible' => $attendance_data['bible'] ?? false,
                         'magazine' => $attendance_data['magazine'] ?? false,
+                        'lesson_id' => $lesson?->id,
+                        'group_user_id' => $membership?->id,
                     ]
                 );
             }
@@ -64,6 +94,13 @@ class AttendanceController extends Controller
                 'message' => 'Frequência salva com sucesso!',
                 'count' => count($validated['attendances'])
             ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'errors' => $e->errors(),
+            ], 422);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -76,9 +113,10 @@ class AttendanceController extends Controller
     /**
      * Buscar frequência por turma e data (para edição/carregamento)
      */
-    public function getByDateAndClass($classGroup, $date)
+    public function getByDateAndClass(Request $request, $classGroup, $date)
     {
         try {
+            $this->authorizeClass($classGroup);
             $cg = ClassGroup::where('name', $classGroup)->first();
             if (!$cg) {
                 return response()->json(['success' => true, 'attendances' => [], 'class_group' => null]);
@@ -86,6 +124,9 @@ class AttendanceController extends Controller
 
             $attendances = Attendance::where('class_group_id', $cg->id)
                 ->whereDate('attendance_date', $date)
+                ->when($request->integer('notebook_id'), function ($query, $notebookId) {
+                    $query->whereHas('lesson.group', fn ($groupQuery) => $groupQuery->where('notebook_id', $notebookId));
+                })
                 ->with('user')
                 ->get()
                 ->map(function ($att) {
@@ -140,11 +181,23 @@ class AttendanceController extends Controller
 
             $user = $request->user();
             $isStaff = $user && in_array($user->user_role, ['professor', 'secretaria']);
+            if ($user?->user_role === 'professor') {
+                abort_unless($user->class_group, 403, 'Professor sem classe definida.');
+                if ($classGroup && $classGroup !== $user->class_group) {
+                    abort(403, 'Professor nao autorizado para esta classe.');
+                }
+                $classGroup = $user->class_group;
+            }
 
             if (!empty($studentName)) {
                 $studentQuery = \App\Models\User::where('name', 'like', '%' . $studentName . '%');
                 if (!empty($classGroup)) {
-                    $studentQuery->where('class_group', $classGroup);
+                    $studentQuery->where(function ($query) use ($classGroup) {
+                        $query->where('class_group', $classGroup)
+                            ->orWhereHas('annualGroups', function ($groupQuery) use ($classGroup) {
+                                $groupQuery->whereHas('classGroup', fn ($classQuery) => $classQuery->where('name', $classGroup));
+                            });
+                    });
                 }
                 $student = $studentQuery->first();
                 if (!$student) {
@@ -158,7 +211,12 @@ class AttendanceController extends Controller
                 if (!$isStaff) {
                     return response()->json(['success' => false, 'message' => 'Acesso negado para listar uma turma inteira'], 403);
                 }
-                $students = \App\Models\User::where('class_group', $classGroup)
+                $students = \App\Models\User::where(function ($query) use ($classGroup) {
+                    $query->where('class_group', $classGroup)
+                        ->orWhereHas('annualGroups', function ($groupQuery) use ($classGroup) {
+                            $groupQuery->whereHas('classGroup', fn ($classQuery) => $classQuery->where('name', $classGroup));
+                        });
+                })
                     ->where('user_role', 'aluno')
                     ->orderBy('name')
                     ->get();
@@ -205,6 +263,10 @@ class AttendanceController extends Controller
             $periodType = $validated['period_type'];
             $year = $validated['year'];
             $classGroup = $validated['class_group'] ?? null;
+            $this->authorizeClass($classGroup);
+            if (auth()->user()?->user_role === 'professor') {
+                $classGroup = auth()->user()->class_group;
+            }
             
             \Log::info('Parametros validados', ['period' => $periodType, 'year' => $year, 'class' => $classGroup]);
 
@@ -221,10 +283,13 @@ class AttendanceController extends Controller
                 });
             }
 
-            $attendances = $query->with('classGroup')->get();
+            $attendances = $query->with(['classGroup', 'lesson.group'])->get();
 
             // Agrupar por data e classe para não duplicar oferta/visitantes
             $groupedAll = $attendances->groupBy(function ($att) {
+                if ($att->lesson_id) {
+                    return 'lesson:' . $att->lesson_id;
+                }
                 $className = $att->classGroup?->name ?? '';
                 return $att->attendance_date->format('Y-m-d') . '|' . $className;
             });
@@ -235,10 +300,12 @@ class AttendanceController extends Controller
                 'with_bible' => $attendances->where('bible', true)->count(),
                 'with_magazine' => $attendances->where('magazine', true)->count(),
                 'total_offering' => $groupedAll->sum(function ($group) {
-                    return (float) ($group->first()->classGroup?->offering ?? 0);
+                    $first = $group->first();
+                    return (float) ($first->lesson?->offering ?? 0);
                 }),
                 'total_visitors' => $groupedAll->sum(function ($group) {
-                    return (int) ($group->first()->classGroup?->visitors ?? 0);
+                    $first = $group->first();
+                    return (int) ($first->lesson?->visitors ?? 0);
                 }),
             ];
 
@@ -270,6 +337,9 @@ class AttendanceController extends Controller
                 });
 
                 $periodGrouped = $periodAttendances->groupBy(function ($att) {
+                    if ($att->lesson_id) {
+                        return 'lesson:' . $att->lesson_id;
+                    }
                     $className = $att->classGroup?->name ?? '';
                     return $att->attendance_date->format('Y-m-d') . '|' . $className;
                 });
@@ -281,10 +351,12 @@ class AttendanceController extends Controller
                     'with_bible' => $periodAttendances->where('bible', true)->count(),
                     'with_magazine' => $periodAttendances->where('magazine', true)->count(),
                     'total_offering' => $periodGrouped->sum(function ($group) {
-                        return (float) ($group->first()->classGroup?->offering ?? 0);
+                        $first = $group->first();
+                        return (float) ($first->lesson?->offering ?? 0);
                     }),
                     'total_visitors' => $periodGrouped->sum(function ($group) {
-                        return (int) ($group->first()->classGroup?->visitors ?? 0);
+                        $first = $group->first();
+                        return (int) ($first->lesson?->visitors ?? 0);
                     }),
                     'details' => $periodGrouped->map(function ($group) {
                         $first = $group->first();
@@ -295,8 +367,8 @@ class AttendanceController extends Controller
                             'absents' => $group->where('status', 'ausente')->count(),
                             'with_bible' => $group->where('bible', true)->count(),
                             'with_magazine' => $group->where('magazine', true)->count(),
-                            'offering' => (float) ($first->classGroup?->offering ?? 0),
-                            'visitors' => (int) ($first->classGroup?->visitors ?? 0),
+                            'offering' => (float) ($first->lesson?->offering ?? 0),
+                            'visitors' => (int) ($first->lesson?->visitors ?? 0),
                         ];
                     })->values(),
                 ];
@@ -318,6 +390,17 @@ class AttendanceController extends Controller
                 'success' => false,
                 'message' => 'Erro ao gerar relatório: ' . $e->getMessage(),
             ], 500);
+        }
+    }
+
+    private function authorizeClass(?string $classGroup): void
+    {
+        $user = auth()->user();
+        if ($user?->user_role === 'professor') {
+            abort_unless($user->class_group, 403, 'Professor sem classe definida.');
+            if ($classGroup && $classGroup !== $user->class_group) {
+                abort(403, 'Professor nao autorizado para esta classe.');
+            }
         }
     }
 

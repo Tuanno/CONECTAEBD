@@ -17,6 +17,8 @@ export default function Dashboard() {
         user?.user_role === 'professor' ? (user.class_group || '') : ''
     );
     const [students, setStudents] = useState([]);
+    const [notebooks, setNotebooks] = useState([]);
+    const [selectedNotebookId, setSelectedNotebookId] = useState('');
     const [professor, setProfessor] = useState(null);
     const [loading, setLoading] = useState(false);
     const [offeringValue, setOfferingValue] = useState('');
@@ -40,6 +42,7 @@ export default function Dashboard() {
     
     // Estado para rastrear presença e materiais de cada aluno
     const [attendanceData, setAttendanceData] = useState({});
+    const [enrollmentStatus, setEnrollmentStatus] = useState({});
     
     // Estado para rastrear swipe
     const touchStartX = useRef(0);
@@ -49,12 +52,27 @@ export default function Dashboard() {
     const canRegisterStudents = user && (user.user_role === 'professor' || user.user_role === 'secretaria');
     const canAccessReport = canRegisterStudents;
 
+    useEffect(() => {
+        axios.get('/api/annual-notebooks')
+            .then(({ data }) => {
+                const available = (data.notebooks || []).filter((item) => item.status === 'aberta');
+                const currentYear = new Date().getFullYear();
+                const current = available.find((item) => item.year === currentYear) || available[0];
+                setNotebooks(available);
+                setSelectedNotebookId(current ? String(current.id) : '');
+            })
+            .catch((error) => console.error('Erro ao buscar cadernetas:', error));
+    }, []);
+
     const classes = [
         { name: 'ADULTO', value: 'adulto' },
         { name: 'JUVENIL', value: 'juvenil' },
         { name: 'PRÉ-ADOLESCENTE', value: 'pre-adolescente' },
         { name: 'INFANTIL', value: 'infantil' },
     ];
+    const visibleClasses = user?.user_role === 'professor'
+        ? classes.filter((item) => item.value === user.class_group)
+        : classes;
 
     function DatePicker({ value, onChange, placeholder = '' }) {
         const [open, setOpen] = useState(false);
@@ -180,6 +198,9 @@ export default function Dashboard() {
     }
 
     const menuItems = [
+        ...(canRegisterStudents ? [{ label: 'NOVA CADERNETA', href: route('annual-notebook.create') }] : []),
+        ...(canRegisterStudents ? [{ label: 'EDITAR CADERNETA', href: '/annual-notebook/edit' }] : []),
+        ...(canRegisterStudents ? [{ label: 'VISÃO GERAL', href: '/annual-notebook/overview' }] : []),
         ...(canAccessReport ? [{ label: 'RELATÓRIO', href: '/attendance-report' }] : []),
         { label: 'HISTÓRICO', href: '/attendance-history' },
     ];
@@ -208,10 +229,14 @@ export default function Dashboard() {
     useEffect(() => {
         if (selectedClass) {
             setLoading(true);
-            axios.get(`/api/students/${selectedClass}`)
+            axios.get(`/api/students/${selectedClass}`, { params: selectedNotebookId ? { notebook_id: selectedNotebookId } : {} })
                 .then(response => {
                     setStudents(response.data.students || []);
                     setProfessor(response.data.professor || null);
+                    setEnrollmentStatus((response.data.students || []).reduce((statuses, student) => {
+                        statuses[student.id] = student.enrollment_status || 'ativa';
+                        return statuses;
+                    }, {}));
                     setLoading(false);
                     // limpar presença ao trocar de classe (carregamento só ao clicar em 'Editar registro')
                     setAttendanceData({});
@@ -228,7 +253,7 @@ export default function Dashboard() {
             setStudents([]);
             setProfessor(null);
         }
-    }, [selectedClass]);
+    }, [selectedClass, selectedNotebookId]);
 
     // Observação: carregamento agora ocorre ao selecionar uma data no calendário
 
@@ -237,7 +262,7 @@ export default function Dashboard() {
         if (!classValue || !dateValue) return;
         setAttendanceLoading(true);
         try {
-            const resp = await axios.get(`/api/attendances/${classValue}/${dateValue}`);
+            const resp = await axios.get(`/api/attendances/${classValue}/${dateValue}`, { params: selectedNotebookId ? { notebook_id: selectedNotebookId } : {} });
             if (!resp.data.success) {
                 showAlert({ message: 'Erro ao carregar presença: ' + (resp.data.message || '') });
                 return;
@@ -343,6 +368,26 @@ export default function Dashboard() {
         }));
     };
 
+    const toggleEnrollmentStatus = (studentId) => {
+        const student = students.find((item) => item.id === studentId);
+        const nextStatus = enrollmentStatus[studentId] === 'trancada' ? 'ativa' : 'trancada';
+
+        if (!student?.group_user_id) {
+            setEnrollmentStatus((current) => ({ ...current, [studentId]: nextStatus }));
+            return;
+        }
+
+        axios.patch(`/api/group-users/${student.group_user_id}/enrollment`, { status: nextStatus })
+            .then(() => {
+                setEnrollmentStatus((current) => ({ ...current, [studentId]: nextStatus }));
+                setAttendanceData((current) => ({
+                    ...current,
+                    [studentId]: { ...current[studentId], status: undefined, materials: {} },
+                }));
+            })
+            .catch((error) => showAlert({ message: error.response?.data?.message || 'Nao foi possivel atualizar a matricula.' }));
+    };
+
     const handleClassClick = (classValue) => {
         setSelectedClass(classValue);
     };
@@ -370,6 +415,9 @@ export default function Dashboard() {
         
         // Incluir alunos
         students.forEach(student => {
+            if (enrollmentStatus[student.id] === 'trancada') {
+                return;
+            }
             attendances.push({
                 user_id: student.id,
                 status: attendanceData[student.id]?.status || 'ausente',
@@ -382,6 +430,7 @@ export default function Dashboard() {
             setSaving(true);
             const response = await axios.post('/api/attendances', {
                 class_group: selectedClass,
+                notebook_id: selectedNotebookId || null,
                 attendance_date: dateToSend,
                 offering: offeringValue ? parseFloat(offeringValue) : null,
                 visitors: visitorsValue ? parseInt(visitorsValue) : 0,
@@ -441,7 +490,7 @@ export default function Dashboard() {
                                 {/* SUBMENU */}
                                 {classesOpen && (
                                     <div className="bg-white mx-2 mt-[-10px] pt-4 pb-2 rounded-b-xl shadow-inner border-t border-gray-100 flex flex-col overflow-hidden">
-                                        {classes.map((item) => (
+                                        {visibleClasses.map((item) => (
                                             <button
                                                 key={item.name}
                                                 onClick={() => handleClassClick(item.value)}
@@ -492,6 +541,26 @@ export default function Dashboard() {
                         <h1 className="text-3xl font-bold text-gray-800 mb-2">
                             REGISTRO DE FREQUÊNCIA
                         </h1>
+
+                        {notebooks.length > 0 && (
+                            <label className="mb-4 flex max-w-xs flex-col gap-1 text-sm font-semibold text-gray-600">
+                                
+                                <select
+                                    value={selectedNotebookId}
+                                    onChange={(event) => {
+                                        setSelectedNotebookId(event.target.value);
+                                        setAttendanceData({});
+                                        setOfferingValue('');
+                                        setVisitorsValue('');
+                                    }}
+                                    className="rounded-xl border-gray-300 bg-white px-3 py-2 font-semibold text-gray-700"
+                                >
+                                    {notebooks.map((item) => (
+                                        <option key={item.id} value={item.id}>{item.year} - {item.name}</option>
+                                    ))}
+                                </select>
+                            </label>
+                        )}
                         
                         {selectedClass ? (
                             <div className="flex items-center justify-between gap-8 overflow-x-auto overflow-y-visible md:overflow-visible">
@@ -696,11 +765,16 @@ export default function Dashboard() {
                                                 <tr className="h-1 bg-gray-200"></tr>
                                             )}
 
-                                            {students.map((student, index) => (
+                                            {students.map((student, index) => {
+                                                const isEnrollmentLocked = enrollmentStatus[student.id] === 'trancada';
+                                                return (
                                                 <React.Fragment key={student.id}>
-                                                    <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                                    <tr className={`border-b border-gray-100 transition-colors ${isEnrollmentLocked ? 'bg-amber-50 hover:bg-amber-100' : 'hover:bg-gray-50'}`}>
                                                         <td className="py-3 px-4 font-semibold text-gray-800">
-                                                            {student.name}
+                                                            <div>{student.name}</div>
+                                                            <span className={`mt-1 inline-block rounded-full px-2 py-1 text-[10px] font-bold uppercase ${isEnrollmentLocked ? 'bg-amber-200 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                                                                {isEnrollmentLocked ? 'Matricula trancada' : 'Matricula ativa'}
+                                                            </span>
                                                         </td>
                                                         <td className="py-3 px-4 text-center">
                                                             <span className="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 uppercase">
@@ -714,7 +788,8 @@ export default function Dashboard() {
                                                                 value="presente"
                                                                 onChange={() => handleAttendanceChange(student.id, 'presente')}
                                                                 checked={attendanceData[student.id]?.status === 'presente'}
-                                                                className="w-5 h-5 text-green-500 focus:ring-green-500 cursor-pointer"
+                                                                disabled={isEnrollmentLocked}
+                                                                className="w-5 h-5 text-green-500 focus:ring-green-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                                                             />
                                                         </td>
                                                         <td className="py-3 px-4 text-center">
@@ -724,7 +799,8 @@ export default function Dashboard() {
                                                                 value="ausente"
                                                                 onChange={() => handleAttendanceChange(student.id, 'ausente')}
                                                                 checked={attendanceData[student.id]?.status === 'ausente'}
-                                                                className="w-5 h-5 text-red-500 focus:ring-red-500 cursor-pointer"
+                                                                disabled={isEnrollmentLocked}
+                                                                className="w-5 h-5 text-red-500 focus:ring-red-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                                                             />
                                                         </td>
                                                         <td className="py-3 px-4">
@@ -751,6 +827,13 @@ export default function Dashboard() {
                                                                             alt="Deletar"
                                                                             className="w-6 h-6"
                                                                         />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => toggleEnrollmentStatus(student.id)}
+                                                                        className={`rounded px-2 py-1 text-xs font-bold transition-colors ${isEnrollmentLocked ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'}`}
+                                                                        title={isEnrollmentLocked ? 'Reativar matrícula' : 'Trancar matrícula'}
+                                                                    >
+                                                                        {isEnrollmentLocked ? 'Reativar' : 'Trancar'}
                                                                     </button>
                                                                 </div>
                                                             )}
@@ -788,7 +871,8 @@ export default function Dashboard() {
                                                         </tr>
                                                     )}
                                                 </React.Fragment>
-                                            ))}
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                     

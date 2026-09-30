@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -68,7 +69,11 @@ class RegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'birth_date' => ['required', 'date'],
             'user_role' => ['required', 'in:professor,secretaria,aluno'],
-            'class_group' => ['required', 'in:adulto,juvenil,infantil,pre-adolescente'],
+            'class_group' => [
+                Rule::requiredIf(fn () => $request->input('user_role') !== 'secretaria'),
+                'nullable',
+                'in:adulto,juvenil,infantil,pre-adolescente',
+            ],
         ]);
 
         if ($isProfessor) {
