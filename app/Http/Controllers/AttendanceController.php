@@ -190,7 +190,8 @@ class AttendanceController extends Controller
             }
 
             if (!empty($studentName)) {
-                $studentQuery = \App\Models\User::where('name', 'like', '%' . $studentName . '%');
+                $studentQuery = \App\Models\User::where('user_role', 'aluno')
+                    ->where('name', 'like', '%' . $studentName . '%');
                 if (!empty($classGroup)) {
                     $studentQuery->where(function ($query) use ($classGroup) {
                         $query->where('class_group', $classGroup)

@@ -9,13 +9,16 @@ export default function AttendanceHistory() {
     const { props } = usePage();
     const user = props.auth.user;
     const isStudent = user && user.user_role === 'aluno';
+    const isProfessor = user && user.user_role === 'professor';
     const isStaff = user && (user.user_role === 'professor' || user.user_role === 'secretaria');
     
     const currentYear = new Date().getFullYear();
     const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
     const [studentName, setStudentName] = useState(isStudent ? user.name : '');
-    const [selectedClass, setSelectedClass] = useState(isStudent ? user.class_group : '');
+    const [selectedClass, setSelectedClass] = useState(
+        isStudent || isProfessor ? user.class_group : ''
+    );
     const [periodType, setPeriodType] = useState('trimestral');
     const [year, setYear] = useState(currentYear);
     const [month, setMonth] = useState('');
@@ -30,6 +33,9 @@ export default function AttendanceHistory() {
         { name: 'PRÉ-ADOLESCENTE', value: 'pre-adolescente' },
         { name: 'INFANTIL', value: 'infantil' },
     ];
+    const availableClasses = isProfessor
+        ? classes.filter((cls) => cls.value === user.class_group)
+        : classes;
 
     const months = [
         { value: '1', label: 'Janeiro' },
@@ -214,7 +220,7 @@ export default function AttendanceHistory() {
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                                 >
                                     <option value="">Todas as turmas</option>
-                                    {classes.map((cls) => (
+                                    {availableClasses.map((cls) => (
                                         <option key={cls.value} value={cls.value}>
                                             {cls.name}
                                         </option>
