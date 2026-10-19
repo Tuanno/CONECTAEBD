@@ -29,7 +29,10 @@ class AnnualNotebookController extends Controller
         $this->authorizeStaff();
 
         return response()->json([
-            'notebooks' => Notebook::orderByDesc('year')->orderByDesc('id')->get(['id', 'name', 'year', 'status']),
+            'notebooks' => Notebook::with('groups:id,notebook_id,name')
+                ->orderByDesc('year')
+                ->orderByDesc('id')
+                ->get(['id', 'name', 'year', 'status']),
         ]);
     }
 
@@ -39,7 +42,7 @@ class AnnualNotebookController extends Controller
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'year' => ['required', 'integer', 'min:2020', 'max:2100', 'unique:notebooks,year'],
+            'year' => ['required', 'string', 'regex:/^\d{4}(?:\.\d+)?$/', 'unique:notebooks,year'],
             'classes' => ['required', 'array', 'min:1'],
             'classes.*.name' => ['required', 'string', 'max:100', 'distinct'],
             'classes.*.teacher_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where('user_role', 'professor')],
@@ -114,6 +117,11 @@ class AnnualNotebookController extends Controller
                 'id' => $group->id,
                 'name' => $group->name,
                 'professor' => $group->professor?->only(['id', 'name']),
+                'students' => $group->students->map(fn ($student) => [
+                    'id' => $student->id,
+                    'name' => $student->name,
+                    'enrollment_status' => $student->pivot->enrollment_status,
+                ])->values(),
                 'active_students' => $active,
                 'locked_students' => $locked,
                 'lessons' => $group->lessons->count(),
@@ -148,7 +156,7 @@ class AnnualNotebookController extends Controller
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'year' => ['required', 'integer', 'min:2020', 'max:2100', Rule::unique('notebooks', 'year')->ignore($notebook->id)],
+            'year' => ['required', 'string', 'regex:/^\d{4}(?:\.\d+)?$/', Rule::unique('notebooks', 'year')->ignore($notebook->id)],
             'status' => ['required', 'in:aberta,encerrada'],
             'classes' => ['required', 'array', 'min:1'],
             'classes.*.id' => ['nullable', 'integer', Rule::exists('groups', 'id')],
