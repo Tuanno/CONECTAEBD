@@ -64,14 +64,13 @@ export default function Dashboard() {
             .catch((error) => console.error('Erro ao buscar cadernetas:', error));
     }, []);
 
-    const classes = [
-        { name: 'ADULTO', value: 'adulto' },
-        { name: 'JUVENIL', value: 'juvenil' },
-        { name: 'PRÉ-ADOLESCENTE', value: 'pre-adolescente' },
-        { name: 'INFANTIL', value: 'infantil' },
-    ];
+    const selectedNotebook = notebooks.find((item) => String(item.id) === String(selectedNotebookId));
+    const classes = selectedNotebook?.groups?.map((group) => ({
+        name: group.name,
+        value: group.name,
+    })) || [];
     const visibleClasses = user?.user_role === 'professor'
-        ? classes.filter((item) => item.value === user.class_group)
+        ? classes.filter((item) => item.value === user.class_group || item.value === selectedClass)
         : classes;
 
     function DatePicker({ value, onChange, placeholder = '' }) {

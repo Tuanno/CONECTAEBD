@@ -16,20 +16,14 @@ class StudentController extends Controller
     {
         $this->authorizeClass($classGroup);
 
-        // Validar que a classe é uma das opções válidas
-        $validClasses = ['adulto', 'juvenil', 'infantil', 'pre-adolescente'];
-        
-        if (!in_array($classGroup, $validClasses)) {
-            return response()->json([
-                'error' => 'Classe inválida'
-            ], 400);
-        }
-
         $notebookId = $request->integer('notebook_id');
         $annualGroup = AnnualGroup::when($notebookId, fn ($query) => $query->where('notebook_id', $notebookId), function ($query) {
                 $query->whereHas('notebook', fn ($notebookQuery) => $notebookQuery->where('status', 'aberta'));
             })
-            ->whereHas('classGroup', fn ($query) => $query->where('name', $classGroup))
+            ->where(function ($query) use ($classGroup) {
+                $query->where('name', $classGroup)
+                    ->orWhereHas('classGroup', fn ($classQuery) => $classQuery->where('name', $classGroup));
+            })
             ->with(['professor:id,name', 'students'])
             ->latest('id')
             ->first();

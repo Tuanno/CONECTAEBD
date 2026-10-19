@@ -1,6 +1,6 @@
 import UserForm from '@/Components/UserForm';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { useAlert } from '@/contexts/AlertContext';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -8,6 +8,8 @@ import axios from 'axios';
 export default function EditUser({ id }) {
     const userId = id;
     const { alert: showAlert } = useAlert();
+    const { props } = usePage();
+    const canEditPassword = props.auth?.user?.user_role === 'secretaria';
     
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -79,6 +81,7 @@ export default function EditUser({ id }) {
                                 errors={{}}
                                 isLoading={saving}
                                 isEditing={true}
+                                allowPasswordEdit={canEditPassword}
                             />
                         </form>
                     ) : (

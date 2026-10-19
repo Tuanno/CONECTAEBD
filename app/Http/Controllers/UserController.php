@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
@@ -99,8 +100,23 @@ class UserController extends Controller
                 'birth_date' => 'nullable|date',
                 'class_group' => 'nullable|string|in:adulto,juvenil,infantil,pre-adolescente',
                 'user_role' => 'required|string|in:aluno,professor,secretaria,admin',
+                'password' => 'nullable|string|min:8|confirmed',
             ]);
-            
+
+            if ($request->filled('password') && $currentUser->user_role !== 'secretaria') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Somente a secretaria pode alterar senhas de usuários.'
+                ], 403);
+            }
+
+            if (!empty($validated['password'])) {
+                $validated['password'] = Hash::make($validated['password']);
+            } else {
+                unset($validated['password']);
+            }
+            unset($validated['password_confirmation']);
+
             $user->update($validated);
             
             return response()->json([
