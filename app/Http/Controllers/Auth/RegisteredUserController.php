@@ -22,15 +22,9 @@ class RegisteredUserController extends Controller
      */
     public function create(): Response
     {
-        // Verificar se o usuário está autenticado e tem permissão para cadastrar
-        if (Auth::check()) {
-            $user = Auth::user();
-            
-            // Apenas professores e secretários podem cadastrar novos alunos
-            if (!in_array($user->user_role, ['professor', 'secretaria'])) {
+        if (Auth::check() && !in_array(Auth::user()->user_role, ['admin', 'professor', 'secretaria'])) {
                 return redirect()->route('dashboard')
-                    ->with('error', 'Você não tem permissão para cadastrar novos alunos.');
-            }
+                    ->with('error', 'Você não tem permissão para cadastrar usuários.');
         }
         
         return Inertia::render('Auth/Register');
@@ -43,19 +37,16 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        // Verificar se o usuário está autenticado e tem permissão para cadastrar
-        if (Auth::check()) {
-            $user = Auth::user();
-            
-            // Apenas professores e secretários podem cadastrar novos alunos
-            if (!in_array($user->user_role, ['professor', 'secretaria'])) {
-                return redirect()->route('dashboard')
-                    ->with('error', 'Você não tem permissão para cadastrar novos alunos.');
-            }
-        }
-        
         $currentUser = Auth::user();
+
+        if ($currentUser && !in_array($currentUser->user_role, ['admin', 'professor', 'secretaria'])) {
+                return redirect()->route('dashboard')
+                    ->with('error', 'Você não tem permissão para cadastrar usuários.');
+        }
+
+        $isAdmin = $currentUser?->user_role === 'admin';
         $isProfessor = $currentUser?->user_role === 'professor';
+        $isSecretary = $currentUser?->user_role === 'secretaria';
 
         if ($isProfessor && !$currentUser->class_group) {
             throw ValidationException::withMessages([
@@ -68,16 +59,22 @@ class RegisteredUserController extends Controller
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'birth_date' => ['required', 'date'],
-            'user_role' => ['required', 'in:professor,secretaria,aluno'],
+            'user_role' => [
+                'required',
+                $isAdmin ? 'in:secretaria' : 'in:aluno',
+            ],
             'class_group' => [
-                Rule::requiredIf(fn () => $request->input('user_role') !== 'secretaria'),
                 'nullable',
+                Rule::requiredIf(fn () => $request->input('user_role') === 'aluno'),
                 'in:adulto,juvenil,infantil,pre-adolescente',
             ],
         ]);
 
-        if ($isProfessor) {
+        if ($isProfessor || $isSecretary || !$currentUser) {
             $validated['user_role'] = 'aluno';
+        }
+
+        if ($isProfessor) {
             $validated['class_group'] = $currentUser->class_group;
         }
 
@@ -92,11 +89,11 @@ class RegisteredUserController extends Controller
 
         event(new Registered($newUser));
 
-        // Se quem está cadastrando é um professor/secretaria autenticado,
-        // redirecionar para o dashboard ao invés de fazer login automático
-        if (Auth::check()) {
+        if ($currentUser) {
             return redirect()->route('dashboard')
-                ->with('success', 'Aluno cadastrado com sucesso!');
+                ->with('success', $isAdmin
+                    ? 'Secretária cadastrada com sucesso!'
+                    : 'Aluno cadastrado com sucesso!');
         }
 
         // Se for auto-registro (não autenticado), fazer login automático

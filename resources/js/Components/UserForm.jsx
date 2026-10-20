@@ -14,6 +14,7 @@ export default function UserForm({
     onSubmit = () => {},
     restrictToClass = '',
     restrictToStudent = false,
+    restrictToRole = '',
     allowPasswordEdit = false
 }) {
     const [showPassword, setShowPassword] = useState(false);
@@ -104,7 +105,12 @@ export default function UserForm({
                     required
                 >
                     <option value="">Selecione...</option>
-                    {(restrictToStudent ? roles.filter(role => role.value === 'aluno') : roles).map(role => (
+                    {(restrictToRole
+                        ? roles.filter(role => role.value === restrictToRole)
+                        : restrictToStudent
+                            ? roles.filter(role => role.value === 'aluno')
+                            : roles
+                    ).map(role => (
                         <option key={role.value} value={role.value}>
                             {role.name}
                         </option>

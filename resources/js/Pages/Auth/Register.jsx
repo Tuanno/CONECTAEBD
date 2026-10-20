@@ -7,6 +7,7 @@ export default function Register() {
     const { props } = usePage();
     const user = props.auth?.user;
     const isProfessor = user?.user_role === 'professor';
+    const isAdmin = user?.user_role === 'admin';
     
     const { data, setData, post, processing, errors } = useForm({
         name: '',
@@ -14,7 +15,7 @@ export default function Register() {
         password: '',
         password_confirmation: '',
         birth_date: '',
-        user_role: isProfessor ? 'aluno' : '',
+        user_role: isAdmin || isProfessor ? (isAdmin ? 'secretaria' : 'aluno') : '',
         class_group: isProfessor ? (user.class_group || '') : '',
     });
 
@@ -38,8 +39,14 @@ export default function Register() {
                             <UserPlus className="w-6 h-6" />
                         </div>
                         <div className="text-left">
-                            <h1 className="text-2xl font-bold text-gray-800">Crie sua conta</h1>
-                            <p className="text-gray-600 text-sm">Preencha os dados para acessar o CONECTAEBD</p>
+                            <h1 className="text-2xl font-bold text-gray-800">
+                                {isAdmin ? 'Cadastrar secretária' : 'Crie sua conta'}
+                            </h1>
+                            <p className="text-gray-600 text-sm">
+                                {isAdmin
+                                    ? 'Cadastre uma secretária para acessar o CONECTAEBD'
+                                    : 'Preencha os dados para acessar o CONECTAEBD'}
+                            </p>
                         </div>
                     </div>
 
@@ -51,7 +58,8 @@ export default function Register() {
                             isLoading={processing}
                             isEditing={false}
                             restrictToClass={isProfessor ? user.class_group : ''}
-                            restrictToStudent={isProfessor}
+                            restrictToStudent={!isAdmin}
+                            restrictToRole={isAdmin ? 'secretaria' : ''}
                         />
 
                         <div className="flex items-center justify-between pt-2 text-sm">

@@ -50,6 +50,7 @@ export default function Dashboard() {
     
     // Verificar se o usuário pode cadastrar alunos (professor ou secretaria)
     const canRegisterStudents = user && (user.user_role === 'professor' || user.user_role === 'secretaria');
+    const canRegisterSecretary = user?.user_role === 'admin';
     const canAccessReport = canRegisterStudents;
 
     useEffect(() => {
@@ -610,6 +611,14 @@ export default function Dashboard() {
                                         Cadastrar Aluno
                                     </Link>
                                 )}
+                                {canRegisterSecretary && (
+                                    <Link
+                                        href="/register"
+                                        className="flex-shrink-0 bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+                                    >
+                                        Cadastrar Secretária
+                                    </Link>
+                                )}
                             </div>
                         ) : (
                             <div className="flex items-center justify-between">
@@ -627,6 +636,14 @@ export default function Dashboard() {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                                         </svg>
                                         Cadastrar Aluno
+                                    </Link>
+                                )}
+                                {canRegisterSecretary && (
+                                    <Link
+                                        href="/register"
+                                        className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+                                    >
+                                        Cadastrar Secretária
                                     </Link>
                                 )}
                             </div>
