@@ -26,13 +26,19 @@ class AnnualNotebookController extends Controller
 
     public function index()
     {
-        $this->authorizeStaff();
+        $user = auth()->user();
+        abort_unless($user && in_array($user->user_role, ['aluno', 'professor', 'secretaria']), 403);
+
+        $query = Notebook::with('groups:id,notebook_id,name')
+            ->orderByDesc('year')
+            ->orderByDesc('id');
+
+        if ($user->user_role === 'aluno') {
+            $query->whereHas('groups.students', fn ($studentQuery) => $studentQuery->where('users.id', $user->id));
+        }
 
         return response()->json([
-            'notebooks' => Notebook::with('groups:id,notebook_id,name')
-                ->orderByDesc('year')
-                ->orderByDesc('id')
-                ->get(['id', 'name', 'year', 'status']),
+            'notebooks' => $query->get(['id', 'name', 'year', 'status']),
         ]);
     }
 

@@ -11,9 +11,12 @@ const steps = [
     { label: 'Revisao', icon: CheckCircle2 },
 ];
 
-const displayClass = (value = '') => value === 'pre-adolescente'
-    ? 'Pre-adolescente'
-    : value.charAt(0).toUpperCase() + value.slice(1);
+const displayClass = (value = '') => {
+    const normalizedValue = String(value || '');
+    return normalizedValue === 'pre-adolescente'
+        ? 'Pre-adolescente'
+        : normalizedValue.charAt(0).toUpperCase() + normalizedValue.slice(1);
+};
 
 export default function AnnualNotebookCreate() {
     const [step, setStep] = useState(0);
