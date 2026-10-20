@@ -9,6 +9,7 @@ use App\Models\Lesson;
 use App\Models\GroupUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class AttendanceController extends Controller
 {
@@ -18,7 +19,7 @@ class AttendanceController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'class_group' => 'required|string|in:adulto,juvenil,infantil,pre-adolescente',
+            'class_group' => 'required|string|max:100',
             'notebook_id' => 'nullable|integer|exists:notebooks,id',
             'attendance_date' => 'required|date',
             'offering' => 'nullable|numeric|min:0',
@@ -29,16 +30,17 @@ class AttendanceController extends Controller
             'attendances.*.bible' => 'boolean',
             'attendances.*.magazine' => 'boolean',
         ]);
+        $classGroup = ClassGroup::whereRaw('LOWER(name) = ?', [mb_strtolower($validated['class_group'])])->first();
+        if (!$classGroup) {
+            throw ValidationException::withMessages([
+                'class_group' => 'A classe selecionada não existe na caderneta.',
+            ]);
+        }
+        $validated['class_group'] = $classGroup->name;
         $this->authorizeClass($validated['class_group']);
 
         try {
             DB::beginTransaction();
-
-            // Encontrar ou criar a turma
-            $classGroup = ClassGroup::firstOrCreate(
-                ['name' => $validated['class_group']],
-                ['description' => null]
-            );
 
             // Atualizar oferta/visitantes na turma (armazenamento centralizado)
             $classGroup->update([
@@ -78,6 +80,7 @@ class AttendanceController extends Controller
                     $attendanceKey,
                     [
                         'class_group_id' => $classGroup->id,
+                        'attendance_date' => $validated['attendance_date'],
                         'status' => $attendance_data['status'],
                         'bible' => $attendance_data['bible'] ?? false,
                         'magazine' => $attendance_data['magazine'] ?? false,
@@ -117,7 +120,7 @@ class AttendanceController extends Controller
     {
         try {
             $this->authorizeClass($classGroup);
-            $cg = ClassGroup::where('name', $classGroup)->first();
+            $cg = ClassGroup::whereRaw('LOWER(name) = ?', [mb_strtolower($classGroup)])->first();
             if (!$cg) {
                 return response()->json(['success' => true, 'attendances' => [], 'class_group' => null]);
             }
@@ -167,14 +170,16 @@ class AttendanceController extends Controller
         try {
             $validated = $request->validate([
                 'student_name' => 'nullable|string',
-                'class_group' => 'nullable|in:adulto,juvenil,infantil,pre-adolescente',
+                'class_group' => 'nullable|string|max:100',
                 'period_type' => 'required|in:mensal,trimestral,anual',
-                'year' => 'required|integer|min:2020|max:2100',
+                'year' => ['required', 'regex:/^\d{4}(?:\.\d+)?$/'],
+                'notebook_id' => 'nullable|integer|exists:notebooks,id',
                 'month' => 'nullable|integer|min:1|max:12',
             ]);
 
             $periodType = $validated['period_type'];
             $year = $validated['year'];
+            $notebookId = $validated['notebook_id'] ?? null;
             $month = $validated['month'] ?? null;
             $classGroup = $validated['class_group'] ?? null;
             $studentName = $validated['student_name'] ?? null;
@@ -183,7 +188,7 @@ class AttendanceController extends Controller
             $isStaff = $user && in_array($user->user_role, ['professor', 'secretaria']);
             if ($user?->user_role === 'professor') {
                 abort_unless($user->class_group, 403, 'Professor sem classe definida.');
-                if ($classGroup && $classGroup !== $user->class_group) {
+                if ($classGroup && mb_strtolower($classGroup) !== mb_strtolower($user->class_group)) {
                     abort(403, 'Professor nao autorizado para esta classe.');
                 }
                 $classGroup = $user->class_group;
@@ -194,17 +199,22 @@ class AttendanceController extends Controller
                     ->where('name', 'like', '%' . $studentName . '%');
                 if (!empty($classGroup)) {
                     $studentQuery->where(function ($query) use ($classGroup) {
-                        $query->where('class_group', $classGroup)
+                        $query->whereRaw('LOWER(class_group) = ?', [mb_strtolower($classGroup)])
                             ->orWhereHas('annualGroups', function ($groupQuery) use ($classGroup) {
-                                $groupQuery->whereHas('classGroup', fn ($classQuery) => $classQuery->where('name', $classGroup));
+                            $groupQuery->whereHas('classGroup', fn ($classQuery) => $classQuery->whereRaw('LOWER(name) = ?', [mb_strtolower($classGroup)]));
                             });
                     });
+                }
+                if ($notebookId) {
+                    $studentQuery->whereHas('annualGroups', fn ($groupQuery) => $groupQuery->where('notebook_id', $notebookId));
+                } elseif (str_contains($year, '.')) {
+                    $studentQuery->whereHas('annualGroups', fn ($groupQuery) => $groupQuery->whereHas('notebook', fn ($notebookQuery) => $notebookQuery->where('year', $year)));
                 }
                 $student = $studentQuery->first();
                 if (!$student) {
                     return response()->json(['success' => false, 'message' => 'Aluno não encontrado'], 404);
                 }
-                $history = $this->buildStudentHistory($student, $periodType, $year, $month);
+                $history = $this->buildStudentHistory($student, $periodType, $year, $month, $notebookId);
                 return response()->json(array_merge(['success' => true, 'mode' => 'student'], $history));
             }
 
@@ -213,19 +223,21 @@ class AttendanceController extends Controller
                     return response()->json(['success' => false, 'message' => 'Acesso negado para listar uma turma inteira'], 403);
                 }
                 $students = \App\Models\User::where(function ($query) use ($classGroup) {
-                    $query->where('class_group', $classGroup)
+                    $query->whereRaw('LOWER(class_group) = ?', [mb_strtolower($classGroup)])
                         ->orWhereHas('annualGroups', function ($groupQuery) use ($classGroup) {
-                            $groupQuery->whereHas('classGroup', fn ($classQuery) => $classQuery->where('name', $classGroup));
+                            $groupQuery->whereHas('classGroup', fn ($classQuery) => $classQuery->whereRaw('LOWER(name) = ?', [mb_strtolower($classGroup)]));
                         });
                 })
                     ->where('user_role', 'aluno')
+                    ->when($notebookId, fn ($query) => $query->whereHas('annualGroups', fn ($groupQuery) => $groupQuery->where('notebook_id', $notebookId)))
+                    ->when(!$notebookId && str_contains($year, '.'), fn ($query) => $query->whereHas('annualGroups', fn ($groupQuery) => $groupQuery->whereHas('notebook', fn ($notebookQuery) => $notebookQuery->where('year', $year))))
                     ->orderBy('name')
                     ->get();
                 if ($students->isEmpty()) {
                     return response()->json(['success' => false, 'message' => 'Nenhum aluno encontrado para esta turma'], 404);
                 }
-                $histories = $students->map(function ($student) use ($periodType, $year, $month) {
-                    return $this->buildStudentHistory($student, $periodType, $year, $month);
+                $histories = $students->map(function ($student) use ($periodType, $year, $month, $notebookId) {
+                    return $this->buildStudentHistory($student, $periodType, $year, $month, $notebookId);
                 })->values();
                 return response()->json([
                     'success' => true,
@@ -257,12 +269,14 @@ class AttendanceController extends Controller
         try {
             $validated = $request->validate([
                 'period_type' => 'required|in:mensal,trimestral,anual',
-                'year' => 'required|integer|min:2020|max:2100',
-                'class_group' => 'nullable|in:adulto,juvenil,infantil,pre-adolescente',
+                'year' => ['required', 'regex:/^\d{4}(?:\.\d+)?$/'],
+                'notebook_id' => 'nullable|integer|exists:notebooks,id',
+                'class_group' => 'nullable|string|max:100',
             ]);
 
             $periodType = $validated['period_type'];
             $year = $validated['year'];
+            $notebookId = $validated['notebook_id'] ?? null;
             $classGroup = $validated['class_group'] ?? null;
             $this->authorizeClass($classGroup);
             if (auth()->user()?->user_role === 'professor') {
@@ -272,15 +286,22 @@ class AttendanceController extends Controller
             \Log::info('Parametros validados', ['period' => $periodType, 'year' => $year, 'class' => $classGroup]);
 
             // Definir período
-            $startDate = "$year-01-01";
-            $endDate = "$year-12-31";
+            $calendarYear = (int) substr($year, 0, 4);
+            $startDate = "$calendarYear-01-01";
+            $endDate = "$calendarYear-12-31";
 
             // Query base
             $query = Attendance::whereBetween('attendance_date', [$startDate, $endDate]);
 
+            if ($notebookId) {
+                $query->whereHas('lesson.group', fn ($groupQuery) => $groupQuery->where('notebook_id', $notebookId));
+            } elseif (str_contains($year, '.')) {
+                $query->whereHas('lesson.group.notebook', fn ($notebookQuery) => $notebookQuery->where('year', $year));
+            }
+
             if ($classGroup) {
                 $query->whereHas('classGroup', function ($q) use ($classGroup) {
-                    $q->where('name', $classGroup);
+                    $q->whereRaw('LOWER(name) = ?', [mb_strtolower($classGroup)]);
                 });
             }
 
@@ -313,14 +334,14 @@ class AttendanceController extends Controller
             $periods = [];
             if ($periodType === 'trimestral') {
                 $periods = [
-                    ['name' => '1º Trimestre', 'start' => "$year-01-01", 'end' => "$year-03-31"],
-                    ['name' => '2º Trimestre', 'start' => "$year-04-01", 'end' => "$year-06-30"],
-                    ['name' => '3º Trimestre', 'start' => "$year-07-01", 'end' => "$year-09-30"],
-                    ['name' => '4º Trimestre', 'start' => "$year-10-01", 'end' => "$year-12-31"],
+                    ['name' => '1º Trimestre', 'start' => "$calendarYear-01-01", 'end' => "$calendarYear-03-31"],
+                    ['name' => '2º Trimestre', 'start' => "$calendarYear-04-01", 'end' => "$calendarYear-06-30"],
+                    ['name' => '3º Trimestre', 'start' => "$calendarYear-07-01", 'end' => "$calendarYear-09-30"],
+                    ['name' => '4º Trimestre', 'start' => "$calendarYear-10-01", 'end' => "$calendarYear-12-31"],
                 ];
             } elseif ($periodType === 'mensal') {
                 for ($month = 1; $month <= 12; $month++) {
-                    $monthStart = sprintf("%d-%02d-01", $year, $month);
+                    $monthStart = sprintf("%d-%02d-01", $calendarYear, $month);
                     $monthEnd = date("Y-m-t", strtotime($monthStart));
                     $monthName = date('F', strtotime($monthStart));
                     $periods[] = ['name' => $monthName, 'start' => $monthStart, 'end' => $monthEnd];
@@ -405,33 +426,36 @@ class AttendanceController extends Controller
         }
     }
 
-    private function buildStudentHistory($student, string $periodType, int $year, ?int $month)
+    private function buildStudentHistory($student, string $periodType, string $year, ?int $month, ?int $notebookId = null)
     {
-        $startDate = "$year-01-01";
-        $endDate = "$year-12-31";
+        $calendarYear = (int) substr($year, 0, 4);
+        $startDate = "$calendarYear-01-01";
+        $endDate = "$calendarYear-12-31";
 
         if ($periodType === 'mensal' && $month) {
-            $startDate = sprintf("%d-%02d-01", $year, $month);
+            $startDate = sprintf("%d-%02d-01", $calendarYear, $month);
             $endDate = date("Y-m-t", strtotime($startDate));
         } else if ($periodType === 'trimestral') {
             $currentMonth = $month ?? date('n');
             if ($currentMonth <= 3) {
-                $startDate = "$year-01-01";
-                $endDate = "$year-03-31";
+                $startDate = "$calendarYear-01-01";
+                $endDate = "$calendarYear-03-31";
             } else if ($currentMonth <= 6) {
-                $startDate = "$year-04-01";
-                $endDate = "$year-06-30";
+                $startDate = "$calendarYear-04-01";
+                $endDate = "$calendarYear-06-30";
             } else if ($currentMonth <= 9) {
-                $startDate = "$year-07-01";
-                $endDate = "$year-09-30";
+                $startDate = "$calendarYear-07-01";
+                $endDate = "$calendarYear-09-30";
             } else {
-                $startDate = "$year-10-01";
-                $endDate = "$year-12-31";
+                $startDate = "$calendarYear-10-01";
+                $endDate = "$calendarYear-12-31";
             }
         }
 
         $attendances = Attendance::where('user_id', $student->id)
             ->whereBetween('attendance_date', [$startDate, $endDate])
+            ->when($notebookId, fn ($query) => $query->whereHas('lesson.group', fn ($groupQuery) => $groupQuery->where('notebook_id', $notebookId)))
+            ->when(!$notebookId && str_contains($year, '.'), fn ($query) => $query->whereHas('lesson.group.notebook', fn ($notebookQuery) => $notebookQuery->where('year', $year)))
             ->orderBy('attendance_date', 'desc')
             ->get();
 

@@ -12,7 +12,9 @@ export default function AttendanceReport() {
     const reportRef = useRef(null);
 
     const [periodType, setPeriodType] = useState('trimestral');
-    const [year, setYear] = useState(new Date().getFullYear());
+    const [year, setYear] = useState(String(new Date().getFullYear()));
+    const [notebooks, setNotebooks] = useState([]);
+    const [notebookId, setNotebookId] = useState('');
     const [classGroup, setClassGroup] = useState(
         user?.user_role === 'professor' ? (user.class_group || '') : 'todas'
     );
@@ -21,19 +23,48 @@ export default function AttendanceReport() {
     const [error, setError] = useState('');
     const canAccessReport = user && (user.user_role === 'professor' || user.user_role === 'secretaria');
 
+    useEffect(() => {
+        axios.get('/api/annual-notebooks')
+            .then(({ data }) => {
+                const available = data.notebooks || [];
+                setNotebooks(available);
+                const currentYear = String(new Date().getFullYear());
+                const selected = available.find((item) => String(item.year) === currentYear) || available[0];
+                if (selected) {
+                    setYear(String(selected.year));
+                    setNotebookId(String(selected.id));
+                }
+            })
+            .catch((requestError) => {
+                console.error('Erro ao carregar cadernetas do relatório:', requestError);
+            });
+    }, []);
+
+    const selectedNotebook = notebooks.find((item) => String(item.id) === String(notebookId));
     const classes = [
         { name: 'TODAS', value: 'todas' },
-        { name: 'ADULTO', value: 'adulto' },
-        { name: 'JUVENIL', value: 'juvenil' },
-        { name: 'PRÉ-ADOLESCENTE', value: 'pre-adolescente' },
-        { name: 'INFANTIL', value: 'infantil' },
+        ...(selectedNotebook?.groups || []).map((group) => ({
+            name: group.name,
+            value: group.name,
+        })),
     ];
     const visibleClasses = user?.user_role === 'professor'
-        ? classes.filter((item) => item.value === user.class_group)
+        ? classes.filter((item) => item.value.toLowerCase() === (user.class_group || '').toLowerCase())
         : classes;
 
+    useEffect(() => {
+        const professorClass = user?.user_role === 'professor' ? (user.class_group || '').toLowerCase() : '';
+        const availableClass = classes.find((item) => item.value.toLowerCase() === professorClass);
+        setClassGroup(user?.user_role === 'professor' ? (availableClass?.value || '') : 'todas');
+    }, [notebookId, user?.user_role, user?.class_group]);
+
     const currentYear = new Date().getFullYear();
-    const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+    const years = Array.from(
+        new Set([
+            ...notebooks.map((item) => String(item.year)),
+            ...Array.from({ length: 5 }, (_, i) => String(currentYear - i)),
+        ])
+    );
     const reportTitle = periodType === 'trimestral'
         ? 'Relatório de Frequência Trimestral'
         : 'Relatório de Frequência Anual';
@@ -45,6 +76,7 @@ export default function AttendanceReport() {
             console.log('Gerando relatório com params:', {
                 period_type: periodType,
                 year: year,
+                notebook_id: notebookId || null,
                 class_group: classGroup === 'todas' ? null : classGroup,
             });
             
@@ -52,6 +84,7 @@ export default function AttendanceReport() {
                 params: {
                     period_type: periodType,
                     year: year,
+                    notebook_id: notebookId || null,
                     class_group: classGroup === 'todas' ? null : classGroup,
                 },
             });
@@ -171,7 +204,12 @@ export default function AttendanceReport() {
                                 </label>
                                 <select
                                     value={year}
-                                    onChange={(e) => setYear(parseInt(e.target.value))}
+                                    onChange={(e) => {
+                                        const nextYear = e.target.value;
+                                        const nextNotebook = notebooks.find((item) => String(item.year) === nextYear);
+                                        setYear(nextYear);
+                                        setNotebookId(nextNotebook ? String(nextNotebook.id) : '');
+                                    }}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     {years.map(y => (

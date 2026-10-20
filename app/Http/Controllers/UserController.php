@@ -98,7 +98,7 @@ class UserController extends Controller
                 'name' => 'required|string|max:255',
                 'email' => 'required|email|unique:users,email,' . $id,
                 'birth_date' => 'nullable|date',
-                'class_group' => 'nullable|string|in:adulto,juvenil,infantil,pre-adolescente',
+                'class_group' => 'nullable|string|max:100',
                 // O administrador é criado fora do cadastro comum e não pode ser
                 // atribuído por professores ou secretárias.
                 'user_role' => 'required|string|in:aluno,professor,secretaria',

@@ -13,29 +13,58 @@ export default function AttendanceHistory() {
     const isStaff = user && (user.user_role === 'professor' || user.user_role === 'secretaria');
     
     const currentYear = new Date().getFullYear();
-    const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+    const [notebooks, setNotebooks] = useState([]);
+    const [notebookId, setNotebookId] = useState('');
 
     const [studentName, setStudentName] = useState(isStudent ? user.name : '');
     const [selectedClass, setSelectedClass] = useState(
         isStudent || isProfessor ? user.class_group : ''
     );
     const [periodType, setPeriodType] = useState('trimestral');
-    const [year, setYear] = useState(currentYear);
+    const [year, setYear] = useState(String(currentYear));
     const [month, setMonth] = useState('');
     const [loading, setLoading] = useState(false);
     const [historyData, setHistoryData] = useState(null);
     const [error, setError] = useState('');
     const [periodOpen, setPeriodOpen] = useState(false);
 
-    const classes = [
-        { name: 'ADULTO', value: 'adulto' },
-        { name: 'JUVENIL', value: 'juvenil' },
-        { name: 'PRÉ-ADOLESCENTE', value: 'pre-adolescente' },
-        { name: 'INFANTIL', value: 'infantil' },
-    ];
+    useEffect(() => {
+        axios.get('/api/annual-notebooks')
+            .then(({ data }) => {
+                const available = data.notebooks || [];
+                setNotebooks(available);
+                const currentYearValue = String(currentYear);
+                const selected = available.find((item) => String(item.year) === currentYearValue) || available[0];
+                if (selected) {
+                    setYear(String(selected.year));
+                    setNotebookId(String(selected.id));
+                }
+            })
+            .catch((requestError) => {
+                console.error('Erro ao carregar cadernetas do histórico:', requestError);
+            });
+    }, []);
+
+    const selectedNotebook = notebooks.find((item) => String(item.id) === String(notebookId));
+    const classes = (selectedNotebook?.groups || []).map((group) => ({
+        name: group.name,
+        value: group.name,
+    }));
     const availableClasses = isProfessor
-        ? classes.filter((cls) => cls.value === user.class_group)
+        ? classes.filter((cls) => cls.value.toLowerCase() === (user.class_group || '').toLowerCase())
         : classes;
+    const years = isStudent
+        ? notebooks.map((item) => String(item.year))
+        : Array.from(new Set([
+            ...notebooks.map((item) => String(item.year)),
+            ...Array.from({ length: 5 }, (_, i) => String(currentYear - i)),
+        ]));
+
+    useEffect(() => {
+        if (isStudent || isProfessor) {
+            setSelectedClass(user.class_group || '');
+        }
+    }, [notebookId, isStudent, isProfessor, user.class_group]);
 
     const months = [
         { value: '1', label: 'Janeiro' },
@@ -80,6 +109,7 @@ export default function AttendanceHistory() {
                     class_group: selectedClass,
                     period_type: periodType,
                     year: year,
+                    notebook_id: notebookId || undefined,
                     month: month || undefined,
                 }
             });
@@ -96,10 +126,10 @@ export default function AttendanceHistory() {
 
     // Buscar automaticamente se for um aluno logado
     useEffect(() => {
-        if (isStudent && user.name && user.class_group) {
+        if (isStudent && user.name && user.class_group && notebookId) {
             handleSearch();
         }
-    }, []);
+    }, [notebookId]);
 
     const clearSearch = () => {
         if (!isStudent) {
@@ -107,7 +137,8 @@ export default function AttendanceHistory() {
             setSelectedClass('');
         }
         setPeriodType('trimestral');
-        setYear(currentYear);
+        setYear(String(currentYear));
+        setNotebookId('');
         setMonth('');
         setHistoryData(null);
         setError('');
@@ -177,12 +208,14 @@ export default function AttendanceHistory() {
                     <h2 className="text-2xl font-bold text-gray-800">
                         Histórico de Frequência Escolar
                     </h2>
-                    <a
-                        href="/dashboard"
-                        className="px-4 py-2 text-sm bg-[#4ade80] text-white rounded-lg hover:bg-green-500 transition-colors"
-                    >
-                        ← Voltar
-                    </a>
+                    {!isStudent && (
+                        <a
+                            href="/dashboard"
+                            className="px-4 py-2 text-sm bg-[#4ade80] text-white rounded-lg hover:bg-green-500 transition-colors"
+                        >
+                            ← Voltar
+                        </a>
+                    )}
                 </div>
             }
         >
@@ -235,7 +268,12 @@ export default function AttendanceHistory() {
                                 </label>
                                 <select
                                     value={year}
-                                    onChange={(e) => setYear(parseInt(e.target.value))}
+                                    onChange={(e) => {
+                                        const nextYear = e.target.value;
+                                        const nextNotebook = notebooks.find((item) => String(item.year) === nextYear);
+                                        setYear(nextYear);
+                                        setNotebookId(nextNotebook ? String(nextNotebook.id) : '');
+                                    }}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 >
                                     {years.map((y) => (
