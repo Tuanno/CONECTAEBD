@@ -96,14 +96,14 @@ export default function Login({ status, canResetPassword }) {
                                 </Link>
                             )}
                         </div>
-                        <div className="flex items-center justify-between pt-2 text-sm">
+                        {/* <div className="flex items-center justify-between pt-2 text-sm">
                             <Link
                                 href={route('register')}
                                 className="text-emerald-600 font-medium hover:text-emerald-700"
                             >
                                 Não possui uma conta? Faça o cadastro.
                             </Link>
-                        </div>
+                        </div> */}
 
                         <button
                             type="submit"

@@ -9,11 +9,6 @@ export default function Navbar() {
   const user = props && props.auth ? props.auth.user : null;
 
   const isLoginPage = url === '/login';
-  const isRegisterPage = url === '/register';
-
-  // Define dinamicamente o destino e o texto do botão quando não autenticado
-  const buttonText = isLoginPage ? 'CADASTRO' : 'LOGIN';
-  const buttonLink = isLoginPage ? route('register') : route('login');
 
   return (
     <nav className="bg-green-500 flex justify-between items-center px-6 py-3 text-black font-semibold">
@@ -38,13 +33,15 @@ export default function Navbar() {
             </Link>
           </>
         ) : (
-          // Não autenticado: mostrar botão login/cadastro (comportamento anterior)
-          <Link
-            href={buttonLink}
-            className="bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800 transition"
-          >
-            {buttonText}
-          </Link>
+          // Na tela de login, não exibir um atalho para cadastro.
+          !isLoginPage && (
+            <Link
+              href={route('login')}
+              className="bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800 transition"
+            >
+              LOGIN
+            </Link>
+          )
         )}
       </div>
     </nav>

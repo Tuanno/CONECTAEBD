@@ -13,7 +13,8 @@ export default function UserForm({
     showButtons = false,
     onSubmit = () => {},
     restrictToClass = '',
-    restrictToStudent = false
+    restrictToStudent = false,
+    allowPasswordEdit = false
 }) {
     const [showPassword, setShowPassword] = useState(false);
     const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
@@ -135,10 +136,10 @@ export default function UserForm({
             </div>
 
             {/* Senhas */}
-            {!isEditing && (
+            {(!isEditing || allowPasswordEdit) && (
                 <>
                     <div className="mt-4">
-                        <InputLabel htmlFor="password" value="Senha *" />
+                        <InputLabel htmlFor="password" value={isEditing ? 'Nova senha (opcional)' : 'Senha *'} />
                         <div className="mt-1 relative">
                             <TextInput
                                 id="password"
@@ -148,7 +149,7 @@ export default function UserForm({
                                 className="block w-full pr-10"
                                 autoComplete="new-password"
                                 onChange={handleChange}
-                                required
+                                required={!isEditing}
                             />
                             <button
                                 type="button"
@@ -165,7 +166,7 @@ export default function UserForm({
                     <div className="mt-4">
                         <InputLabel
                             htmlFor="password_confirmation"
-                            value="Confirmar Senha *"
+                            value={isEditing ? 'Confirmar nova senha' : 'Confirmar Senha *'}
                         />
                         <div className="mt-1 relative">
                             <TextInput
@@ -176,7 +177,7 @@ export default function UserForm({
                                 className="block w-full pr-10"
                                 autoComplete="new-password"
                                 onChange={handleChange}
-                                required
+                                required={!isEditing}
                             />
                             <button
                                 type="button"

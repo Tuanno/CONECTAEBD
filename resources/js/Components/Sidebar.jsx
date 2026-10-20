@@ -17,12 +17,12 @@ export default function Sidebar() {
 
       <button className="flex items-center gap-2 p-2 bg-white text-green-600 rounded hover:bg-green-100 w-full justify-center md:justify-start">
         <Link href={route('login')} className="flex items-center gap-2 w-full">
-          <span role="img" aria-label="Professor">👨‍🏫</span>
-          <span className="ml-2">PROFESSOR</span>
+          <span role="img" aria-label="login">👨‍🏫</span>
+          <span className="ml-2">LOGIN</span>
         </Link>
       </button>
 
-      <button className="flex items-center gap-2 p-2 bg-white text-green-600 rounded hover:bg-green-100 w-full justify-center md:justify-start">
+      {/* <button className="flex items-center gap-2 p-2 bg-white text-green-600 rounded hover:bg-green-100 w-full justify-center md:justify-start">
         <Link href={route('login')} className="flex items-center gap-2 w-full">
           <span role="img" aria-label="Secretaria">👩‍💼</span>
           <span className="ml-2">SECRETARIA</span>
@@ -34,7 +34,7 @@ export default function Sidebar() {
           <span role="img" aria-label="Aluno">👨‍🎓</span>
           <span className="ml-2">ALUNO</span>
         </Link>
-      </button>
+      </button> */}
     </div>
   );
 

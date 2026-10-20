@@ -24,7 +24,7 @@ export default function ConfirmPassword() {
 
             <div className="mb-4 text-sm text-gray-600">
                 Esta é uma área segura do aplicativo. Confirme
-                 suasenha antes de continuar.
+                 sua senha antes de continuar.
             </div>
 
             <form onSubmit={submit}>
