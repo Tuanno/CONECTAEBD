@@ -5,15 +5,40 @@ import { useAlert } from '@/contexts/AlertContext';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
-export default function EditUser({ id }) {
+export default function EditUser({ id, notebookId }) {
     const userId = id;
     const { alert: showAlert } = useAlert();
     const { props } = usePage();
     const canEditPassword = props.auth?.user?.user_role === 'secretaria';
+    const canLoadClassOptions = ['professor', 'secretaria'].includes(props.auth?.user?.user_role);
     
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [userData, setUserData] = useState(null);
+    const [classOptions, setClassOptions] = useState(null);
+
+    useEffect(() => {
+        if (!canLoadClassOptions) {
+            return;
+        }
+
+        const query = notebookId ? `?notebook_id=${encodeURIComponent(notebookId)}` : '';
+        axios.get(`/api/annual-notebooks${query}`)
+            .then(({ data }) => {
+                const notebooks = data.notebooks || [];
+                const notebook = notebookId
+                    ? notebooks.find((item) => String(item.id) === String(notebookId))
+                    : notebooks.find((item) => item.status === 'aberta') || notebooks[0];
+                setClassOptions((notebook?.groups || []).map((group) => ({
+                    name: group.name,
+                    value: group.name,
+                })));
+            })
+            .catch((error) => {
+                console.error('Erro ao carregar classes da caderneta:', error);
+                showAlert({ headline: 'Erro', title: 'ERROR MESSAGE', variant: 'error', message: 'Erro ao carregar classes da caderneta' });
+            });
+    }, [notebookId, canLoadClassOptions]);
 
     // Buscar dados do usuário
     useEffect(() => {
@@ -81,6 +106,7 @@ export default function EditUser({ id }) {
                                 errors={{}}
                                 isLoading={saving}
                                 isEditing={true}
+                                classOptions={canLoadClassOptions ? classOptions : null}
                                 allowPasswordEdit={canEditPassword}
                             />
                         </form>

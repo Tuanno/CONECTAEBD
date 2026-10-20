@@ -61,16 +61,18 @@ class RegisteredUserController extends Controller
             'birth_date' => ['required', 'date'],
             'user_role' => [
                 'required',
-                $isAdmin ? 'in:secretaria' : 'in:aluno',
+                $isAdmin
+                    ? 'in:secretaria'
+                    : ($isSecretary ? 'in:professor,aluno' : 'in:aluno'),
             ],
             'class_group' => [
                 'nullable',
-                Rule::requiredIf(fn () => $request->input('user_role') === 'aluno'),
+                Rule::requiredIf(fn () => !$isSecretary && $request->input('user_role') !== 'secretaria'),
                 'in:adulto,juvenil,infantil,pre-adolescente',
             ],
         ]);
 
-        if ($isProfessor || $isSecretary || !$currentUser) {
+        if ($isProfessor || !$currentUser) {
             $validated['user_role'] = 'aluno';
         }
 
@@ -91,9 +93,11 @@ class RegisteredUserController extends Controller
 
         if ($currentUser) {
             return redirect()->route('dashboard')
-                ->with('success', $isAdmin
-                    ? 'Secretária cadastrada com sucesso!'
-                    : 'Aluno cadastrado com sucesso!');
+                ->with('success', match ($validated['user_role']) {
+                    'secretaria' => 'Secretária cadastrada com sucesso!',
+                    'professor' => 'Professor cadastrado com sucesso!',
+                    default => 'Aluno cadastrado com sucesso!',
+                });
         }
 
         // Se for auto-registro (não autenticado), fazer login automático

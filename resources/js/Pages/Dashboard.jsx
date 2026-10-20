@@ -199,10 +199,9 @@ export default function Dashboard() {
 
     const menuItems = [
         ...(canRegisterStudents ? [{ label: 'NOVA CADERNETA', href: route('annual-notebook.create') }] : []),
-        ...(canRegisterStudents ? [{ label: 'EDITAR CADERNETA', href: '/annual-notebook/edit' }] : []),
         ...(canRegisterStudents ? [{ label: 'VISÃO GERAL', href: '/annual-notebook/overview' }] : []),
         ...(canAccessReport ? [{ label: 'RELATÓRIO', href: '/attendance-report' }] : []),
-        { label: 'HISTÓRICO', href: '/attendance-history' },
+        ...(user?.user_role !== 'admin' ? [{ label: 'HISTÓRICO', href: '/attendance-history' }] : []),
     ];
 
     // Detectar swipe para abrir/fechar sidebar
@@ -311,7 +310,10 @@ export default function Dashboard() {
             return;
         }
         // Usar o Link do Inertia para navegação
-        window.location.href = route('edit-user', { id: studentId });
+        const notebookQuery = selectedNotebookId
+            ? `?notebook_id=${encodeURIComponent(selectedNotebookId)}`
+            : '';
+        window.location.href = `${route('edit-user', { id: studentId })}${notebookQuery}`;
     };
 
     const handleDeleteStudent = async (studentId) => {
@@ -608,7 +610,7 @@ export default function Dashboard() {
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                                         </svg>
-                                        Cadastrar Aluno
+                                        {user?.user_role === 'secretaria' ? 'Gerenciar Pessoas' : 'Cadastrar Aluno'}
                                     </Link>
                                 )}
                                 {canRegisterSecretary && (
@@ -635,7 +637,7 @@ export default function Dashboard() {
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                                         </svg>
-                                        Cadastrar Aluno
+                                        {user?.user_role === 'secretaria' ? 'Gerenciar Pessoas' : 'Cadastrar Aluno'}
                                     </Link>
                                 )}
                                 {canRegisterSecretary && (
