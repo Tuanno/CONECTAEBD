@@ -55,8 +55,11 @@ Route::get('/annual-notebook/{id}/overview', function ($id) {
     return Inertia::render('AnnualNotebookOverview', ['id' => $id]);
 })->middleware(['auth', 'verified'])->name('annual-notebook.overview');
 
-Route::get('/edit-user/{id}', function ($id) {
-    return Inertia::render('EditUser', ['id' => $id]);
+Route::get('/edit-user/{id}', function (Illuminate\Http\Request $request, $id) {
+    return Inertia::render('EditUser', [
+        'id' => $id,
+        'notebookId' => $request->integer('notebook_id') ?: null,
+    ]);
 })->middleware(['auth', 'verified'])->name('edit-user');
 
 Route::middleware('auth')->group(function () {

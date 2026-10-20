@@ -7,6 +7,7 @@ export default function Register() {
     const { props } = usePage();
     const user = props.auth?.user;
     const isProfessor = user?.user_role === 'professor';
+    const isSecretary = user?.user_role === 'secretaria';
     const isAdmin = user?.user_role === 'admin';
     
     const { data, setData, post, processing, errors } = useForm({
@@ -58,8 +59,10 @@ export default function Register() {
                             isLoading={processing}
                             isEditing={false}
                             restrictToClass={isProfessor ? user.class_group : ''}
-                            restrictToStudent={!isAdmin}
+                            restrictToStudent={!isAdmin && !isSecretary}
                             restrictToRole={isAdmin ? 'secretaria' : ''}
+                            allowedRoles={isSecretary ? ['professor', 'aluno'] : []}
+                            classOptional={isSecretary}
                         />
 
                         <div className="flex items-center justify-between pt-2 text-sm">

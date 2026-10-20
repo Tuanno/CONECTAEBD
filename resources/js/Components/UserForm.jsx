@@ -15,16 +15,20 @@ export default function UserForm({
     restrictToClass = '',
     restrictToStudent = false,
     restrictToRole = '',
+    allowedRoles = [],
+    classOptional = false,
+    classOptions = null,
     allowPasswordEdit = false
 }) {
     const [showPassword, setShowPassword] = useState(false);
     const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
-    const classes = [
+    const defaultClasses = [
         { name: 'Adulto', value: 'adulto' },
         { name: 'Juvenil', value: 'juvenil' },
         { name: 'Infantil', value: 'infantil' },
         { name: 'Pré-Adolescente', value: 'pre-adolescente' },
     ];
+    const classes = classOptions || defaultClasses;
 
     const roles = [
         { name: 'Professor', value: 'professor' },
@@ -107,9 +111,11 @@ export default function UserForm({
                     <option value="">Selecione...</option>
                     {(restrictToRole
                         ? roles.filter(role => role.value === restrictToRole)
-                        : restrictToStudent
-                            ? roles.filter(role => role.value === 'aluno')
-                            : roles
+                        : allowedRoles.length > 0
+                            ? roles.filter(role => allowedRoles.includes(role.value))
+                            : restrictToStudent
+                                ? roles.filter(role => role.value === 'aluno')
+                                : roles
                     ).map(role => (
                         <option key={role.value} value={role.value}>
                             {role.name}
@@ -120,26 +126,31 @@ export default function UserForm({
             </div>
 
             {/* Classe */}
-            <div className="mt-4">
-                <InputLabel htmlFor="class_group" value={data.user_role === 'secretaria' ? 'Classe (opcional)' : 'Classe *'} />
-                <select
-                    id="class_group"
-                    name="class_group"
-                    value={data.class_group || ''}
-                    disabled={Boolean(restrictToClass)}
-                    required={data.user_role !== 'secretaria'}
-                    className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                    onChange={handleChange}
-                >
-                    <option value="">Selecione...</option>
-                    {(restrictToClass ? classes.filter(cls => cls.value === restrictToClass) : classes).map(cls => (
-                        <option key={cls.value} value={cls.value}>
-                            {cls.name}
-                        </option>
-                    ))}
-                </select>
-                {errors.class_group && <InputError message={errors.class_group} className="mt-2" />}
-            </div>
+            {!classOptional && (
+                <div className="mt-4">
+                    <InputLabel
+                        htmlFor="class_group"
+                        value={data.user_role === 'secretaria' ? 'Classe (opcional)' : 'Classe *'}
+                    />
+                    <select
+                        id="class_group"
+                        name="class_group"
+                        value={data.class_group || ''}
+                        disabled={Boolean(restrictToClass)}
+                        required={data.user_role !== 'secretaria'}
+                        className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                        onChange={handleChange}
+                    >
+                        <option value="">Selecione...</option>
+                        {(restrictToClass ? classes.filter(cls => cls.value === restrictToClass) : classes).map(cls => (
+                            <option key={cls.value} value={cls.value}>
+                                {cls.name}
+                            </option>
+                        ))}
+                    </select>
+                    {errors.class_group && <InputError message={errors.class_group} className="mt-2" />}
+                </div>
+            )}
 
             {/* Senhas */}
             {(!isEditing || allowPasswordEdit) && (

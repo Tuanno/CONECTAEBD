@@ -33,6 +33,10 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        if ($request->user()->user_role === 'aluno') {
+            return redirect()->route('attendance-history');
+        }
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 

@@ -69,4 +69,45 @@ class RegistrationTest extends TestCase
         $response->assertSessionHasErrors('user_role');
         $this->assertDatabaseMissing('users', ['email' => 'outra@example.com']);
     }
+
+    public function test_secretary_can_register_a_professor(): void
+    {
+        $secretary = User::factory()->create(['user_role' => 'secretaria']);
+
+        $response = $this->actingAs($secretary)->post('/register', [
+            'name' => 'Professor',
+            'email' => 'professor@example.com',
+            'birth_date' => '1990-01-01',
+            'user_role' => 'professor',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ]);
+
+        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertDatabaseHas('users', [
+            'email' => 'professor@example.com',
+            'user_role' => 'professor',
+            'class_group' => null,
+        ]);
+    }
+
+    public function test_secretary_can_register_a_student(): void
+    {
+        $secretary = User::factory()->create(['user_role' => 'secretaria']);
+
+        $response = $this->actingAs($secretary)->post('/register', [
+            'name' => 'Aluno',
+            'email' => 'aluno@example.com',
+            'birth_date' => '1990-01-01',
+            'user_role' => 'aluno',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ]);
+
+        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertDatabaseHas('users', [
+            'email' => 'aluno@example.com',
+            'user_role' => 'aluno',
+        ]);
+    }
 }
