@@ -37,6 +37,10 @@ class AuthenticatedSessionController extends Controller
             return redirect()->route('attendance-history');
         }
 
+        if ($request->user()->user_role === 'admin') {
+            return redirect()->route('admin.secretaries');
+        }
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 

@@ -10,6 +10,7 @@ export default function Dashboard() {
     const { props } = usePage();
     const user = props.auth.user;
     const { alert: showAlert, confirm: showConfirm } = useAlert();
+    const successMessage = props.flash?.success;
     
     const [classesOpen, setClassesOpen] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -52,6 +53,17 @@ export default function Dashboard() {
     const canRegisterStudents = user && (user.user_role === 'professor' || user.user_role === 'secretaria');
     const canRegisterSecretary = user?.user_role === 'admin';
     const canAccessReport = canRegisterStudents;
+
+    useEffect(() => {
+        if (user?.user_role === 'admin' && successMessage) {
+            showAlert({
+                headline: 'Feito!',
+                title: 'SUCESSO',
+                variant: 'info',
+                message: successMessage,
+            });
+        }
+    }, [user?.user_role, successMessage, showAlert]);
 
     useEffect(() => {
         axios.get('/api/annual-notebooks')
@@ -544,6 +556,25 @@ export default function Dashboard() {
                             REGISTRO DE FREQUÊNCIA
                         </h1>
 
+                        {user?.user_role === 'admin' && (
+                            <section className="mb-6 rounded-xl bg-white p-5 shadow-lg">
+                                <div className="flex items-center justify-between gap-4">
+                                    <div>
+                                        <h2 className="text-lg font-bold text-gray-800">Gerenciar secretárias</h2>
+                                        <p className="mt-1 text-sm text-gray-500">
+                                            Cadastre ou edite os dados das secretárias.
+                                        </p>
+                                    </div>
+                                    <Link
+                                        href={route('admin.secretaries')}
+                                        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                                    >
+                                        Acessar
+                                    </Link>
+                                </div>
+                            </section>
+                        )}
+
                         {notebooks.length > 0 && (
                             <label className="mb-4 flex max-w-xs flex-col gap-1 text-sm font-semibold text-gray-600">
                                 
@@ -615,10 +646,10 @@ export default function Dashboard() {
                                 )}
                                 {canRegisterSecretary && (
                                     <Link
-                                        href="/register"
+                                        href={route('admin.secretaries')}
                                         className="flex-shrink-0 bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
                                     >
-                                        Cadastrar Secretária
+                                        Gerenciar Secretárias
                                     </Link>
                                 )}
                             </div>
@@ -642,10 +673,10 @@ export default function Dashboard() {
                                 )}
                                 {canRegisterSecretary && (
                                     <Link
-                                        href="/register"
+                                        href={route('admin.secretaries')}
                                         className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
                                     >
-                                        Cadastrar Secretária
+                                        Gerenciar Secretárias
                                     </Link>
                                 )}
                             </div>

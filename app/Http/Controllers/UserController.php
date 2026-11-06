@@ -9,6 +9,21 @@ use Illuminate\Support\Facades\Hash;
 class UserController extends Controller
 {
     /**
+     * Buscar as secretárias disponíveis para o administrador.
+     */
+    public function secretaries()
+    {
+        abort_unless(auth()->user()?->user_role === 'admin', 403);
+
+        return response()->json([
+            'secretaries' => User::where('user_role', 'secretaria')
+                ->select('id', 'name', 'email', 'birth_date', 'user_role', 'class_group')
+                ->orderBy('name')
+                ->get(),
+        ]);
+    }
+
+    /**
      * Deletar um usuário
      */
     public function destroy($id)
@@ -55,7 +70,10 @@ class UserController extends Controller
     {
         // Verificar se o usuário tem permissão
         $currentUser = auth()->user();
-        if (!in_array($currentUser->user_role, ['professor', 'secretaria'])) {
+        $user = User::find($id);
+        $canEdit = in_array($currentUser->user_role, ['professor', 'secretaria'])
+            || ($currentUser->user_role === 'admin' && $user?->user_role === 'secretaria');
+        if (!$canEdit) {
             return response()->json([
                 'success' => false,
                 'message' => 'Você não tem permissão para editar usuários!'
@@ -63,7 +81,7 @@ class UserController extends Controller
         }
 
         try {
-            $user = User::findOrFail($id);
+            $user = $user ?: User::findOrFail($id);
             
             return response()->json([
                 'success' => true,
@@ -84,7 +102,10 @@ class UserController extends Controller
     {
         // Verificar se o usuário tem permissão
         $currentUser = auth()->user();
-        if (!in_array($currentUser->user_role, ['professor', 'secretaria'])) {
+        $user = User::find($id);
+        $canEdit = in_array($currentUser->user_role, ['professor', 'secretaria'])
+            || ($currentUser->user_role === 'admin' && $user?->user_role === 'secretaria');
+        if (!$canEdit) {
             return response()->json([
                 'success' => false,
                 'message' => 'Você não tem permissão para atualizar usuários!'
@@ -92,7 +113,7 @@ class UserController extends Controller
         }
 
         try {
-            $user = User::findOrFail($id);
+            $user = $user ?: User::findOrFail($id);
             
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
@@ -105,10 +126,24 @@ class UserController extends Controller
                 'password' => 'nullable|string|min:8|confirmed',
             ]);
 
-            if ($request->filled('password') && $currentUser->user_role !== 'secretaria') {
+            if ($currentUser->user_role === 'admin' && $user->user_role !== 'secretaria') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Somente a secretaria pode alterar senhas de usuários.'
+                    'message' => 'O administrador só pode editar secretárias.'
+                ], 403);
+            }
+
+            if ($currentUser->user_role === 'admin' && $validated['user_role'] !== 'secretaria') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'O administrador não pode alterar o tipo da secretária.'
+                ], 403);
+            }
+
+            if ($request->filled('password') && !in_array($currentUser->user_role, ['secretaria', 'admin'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Você não tem permissão para alterar senhas de usuários.'
                 ], 403);
             }
 

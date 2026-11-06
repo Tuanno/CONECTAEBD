@@ -9,7 +9,8 @@ export default function EditUser({ id, notebookId }) {
     const userId = id;
     const { alert: showAlert } = useAlert();
     const { props } = usePage();
-    const canEditPassword = props.auth?.user?.user_role === 'secretaria';
+    const canEditPassword = ['secretaria', 'admin'].includes(props.auth?.user?.user_role);
+    const isAdmin = props.auth?.user?.user_role === 'admin';
     const canLoadClassOptions = ['professor', 'secretaria'].includes(props.auth?.user?.user_role);
     
     const [loading, setLoading] = useState(true);
@@ -108,6 +109,7 @@ export default function EditUser({ id, notebookId }) {
                                 isEditing={true}
                                 classOptions={canLoadClassOptions ? classOptions : null}
                                 allowPasswordEdit={canEditPassword}
+                                allowedRoles={isAdmin ? ['secretaria'] : []}
                             />
                         </form>
                     ) : (

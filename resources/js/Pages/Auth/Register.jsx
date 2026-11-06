@@ -1,15 +1,30 @@
 import UserForm from '@/Components/UserForm';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { useAlert } from '@/contexts/AlertContext';
 import { UserPlus } from 'lucide-react';
+import { useEffect } from 'react';
 
 export default function Register() {
     const { props } = usePage();
     const user = props.auth?.user;
+    const { alert: showAlert } = useAlert();
+    const successMessage = props.flash?.success;
     const isProfessor = user?.user_role === 'professor';
     const isSecretary = user?.user_role === 'secretaria';
     const isAdmin = user?.user_role === 'admin';
-    
+
+    useEffect(() => {
+        if (isAdmin && successMessage) {
+            showAlert({
+                headline: 'Feito!',
+                title: 'SUCESSO',
+                variant: 'info',
+                message: successMessage,
+            });
+        }
+    }, [isAdmin, successMessage, showAlert]);
+
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         email: '',
@@ -31,7 +46,10 @@ export default function Register() {
             <div className="w-full max-w-2xl mx-auto px-4">
                 <div className="bg-white shadow-xl rounded-2xl p-6 border border-gray-100">
                     {user && (
-                        <Link href="/dashboard" className="text-blue-500 hover:text-indigo-700 mb-4 inline-block font-medium">
+                        <Link
+                            href={isAdmin ? route('admin.secretaries') : '/dashboard'}
+                            className="text-blue-500 hover:text-indigo-700 mb-4 inline-block font-medium"
+                        >
                             ← Voltar
                         </Link>
                     )}
@@ -82,6 +100,7 @@ export default function Register() {
                             Registrar
                         </button>
                     </form>
+
                 </div>
             </div>
         </GuestLayout>

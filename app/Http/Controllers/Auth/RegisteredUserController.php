@@ -92,12 +92,15 @@ class RegisteredUserController extends Controller
         event(new Registered($newUser));
 
         if ($currentUser) {
-            return redirect()->route('dashboard')
-                ->with('success', match ($validated['user_role']) {
-                    'secretaria' => 'Secretária cadastrada com sucesso!',
-                    'professor' => 'Professor cadastrado com sucesso!',
-                    default => 'Aluno cadastrado com sucesso!',
-                });
+            $successMessage = match ($validated['user_role']) {
+                'secretaria' => 'Secretária cadastrada com sucesso!',
+                'professor' => 'Professor cadastrado com sucesso!',
+                default => 'Aluno cadastrado com sucesso!',
+            };
+
+            return redirect()
+                ->route($isAdmin ? 'admin.secretaries' : 'dashboard')
+                ->with('success', $successMessage);
         }
 
         // Se for auto-registro (não autenticado), fazer login automático

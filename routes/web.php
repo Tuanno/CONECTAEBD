@@ -20,8 +20,18 @@ Route::get('/', function () {
 });
 
 Route::get('/dashboard', function () {
+    if (auth()->user()?->user_role === 'admin') {
+        return Inertia::render('AdminSecretaries');
+    }
+
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::get('/admin/secretaries', function () {
+    abort_unless(auth()->user()?->user_role === 'admin', 403);
+
+    return Inertia::render('AdminSecretaries');
+})->middleware(['auth', 'verified'])->name('admin.secretaries');
 
 Route::get('/annual-notebook/create', function () {
     $user = auth()->user();
@@ -99,6 +109,7 @@ Route::middleware('auth')->group(function () {
     })->name('attendance-history');
     
     // Rotas para usuários (editar e deletar)
+    Route::get('/api/secretaries', [UserController::class, 'secretaries']);
     Route::get('/api/users/{id}', [UserController::class, 'edit']);
     Route::put('/api/users/{id}', [UserController::class, 'update']);
     Route::delete('/api/users/{id}', [UserController::class, 'destroy']);

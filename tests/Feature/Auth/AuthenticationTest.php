@@ -46,6 +46,21 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('attendance-history', absolute: false));
     }
 
+    public function test_admins_are_redirected_to_secretary_registration_after_login(): void
+    {
+        $admin = User::factory()->create([
+            'user_role' => 'admin',
+        ]);
+
+        $response = $this->post('/login', [
+            'email' => $admin->email,
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticatedAs($admin);
+        $response->assertRedirect(route('register', absolute: false));
+    }
+
     public function test_users_can_not_authenticate_with_invalid_password(): void
     {
         $user = User::factory()->create();
